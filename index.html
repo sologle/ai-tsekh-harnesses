@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="theme-color" content="#0F0F12" />
+    <meta
+      name="description"
+      content="Интерактивная учебная карта AI-харнессов. Область работы, автономность, происхождение сведений и конфигурационные границы."
+    />
+    <title>Карта AI-харнессов · AI.Цех</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="./styles.css" />
+    <script type="module" src="./app.js"></script>
+  </head>
+  <body>
+    <a class="skip" href="#main">К карте и карточкам</a>
+    <main id="main" tabindex="-1">
+      <h1 class="sr-only">Выбирай среду. Не логотип. Карта AI-харнессов</h1>
+      <header class="mobile-heading">
+        <p class="micro">AI.Цех / полевой атлас</p>
+        <div class="title">Выбирай среду.<br /><span>Не логотип.</span></div>
+        <p class="muted">От инженерной задачи до постоянной личной среды</p>
+      </header>
+      <div id="map" role="region" aria-label="Карта"></div>
+      <div id="mobile-list"></div>
+      <p class="mobile-disclaimer" id="mobile-disclaimer"></p>
+      <div id="loading" role="status">Загрузка локальной карты…</div>
+    </main>
+    <nav class="tools" aria-label="Режим и исследование">
+      <div class="mode-row">
+        <button data-mode="explore" aria-pressed="true">Исследовать</button
+        ><button data-mode="present" aria-pressed="false">Вести урок</button
+        ><button
+          data-mode="audience"
+          aria-pressed="false"
+          title="Чистый экран. P возвращает управление"
+        >
+          Зритель
+        </button>
+      </div>
+      <div class="tool-row">
+        <label class="sr-only" for="scenario"
+          >Прочитать карту через задачу</label
+        ><select id="scenario">
+          <option value="">Задача → контур</option>
+          <option value="code">Исправить код</option>
+          <option value="briefing">Ежедневная сводка</option>
+          <option value="shell">Своя оболочка</option></select
+        ><button
+          id="open-controls"
+          aria-expanded="false"
+          aria-controls="presenter"
+        >
+          Управление <kbd>P</kbd></button
+        ><span id="step-label"></span>
+      </div>
+    </nav>
+    <aside id="scenario-note" hidden aria-label="Пояснение задачи"></aside>
+    <aside id="presenter" hidden aria-label="Presenter controls">
+      <div class="drawer-head">
+        <div>
+          <p class="micro">Present / teach</p>
+          <h2>Собирай карту по ходу</h2>
+        </div>
+        <button id="close-controls" aria-label="Закрыть управление">×</button>
+      </div>
+      <div class="row">
+        <button id="previous" aria-label="Previous reveal">← Назад</button
+        ><button class="primary" id="next" aria-label="Next reveal">
+          Дальше →
+        </button>
+      </div>
+      <label for="state-select">Состояние раскрытия</label
+      ><select id="state-select"></select>
+      <div class="preset-row" aria-label="Presets">
+        <button data-preset="L1-start">L1 start</button
+        ><button data-preset="L1-end">L1 end</button
+        ><button data-preset="L2-end">L2 end</button
+        ><button data-preset="L3-end">L3 end</button
+        ><button data-preset="Final">Final</button>
+      </div>
+      <p class="hint">
+        Пресеты и шаги восстанавливают точное состояние: без фильтров, выделения
+        и ручных позиций.
+      </p>
+      <div class="row">
+        <label class="check"
+          ><input id="legend-toggle" type="checkbox" />Легенда</label
+        ><label class="check"
+          ><input id="pip-toggle" type="checkbox" checked />PiP safe zone</label
+        ><label class="check"
+          ><input id="roadmap-toggle" type="checkbox" />Roadmap</label
+        >
+      </div>
+      <details>
+        <summary>Добавить / скрыть продукт</summary>
+        <div id="visibility"></div>
+      </details>
+      <details>
+        <summary>Маркеры и фильтры</summary>
+        <div id="filters"></div>
+        <button id="clear-filters">Убрать фильтры</button>
+        <p class="hint">
+          Фильтр скрывает карточки, но не меняет их положение. Кастомизация и
+          самоизменение не становятся осями.
+        </p>
+      </details>
+      <details>
+        <summary>Масштаб и перемещение</summary>
+        <label for="zoom">Масштаб <output id="zoom-label">100%</output></label
+        ><input
+          id="zoom"
+          type="range"
+          min="75"
+          max="150"
+          value="100"
+          step="5"
+        />
+        <div class="row">
+          <button data-pan="left" aria-label="Сдвинуть поле влево">←</button
+          ><button data-pan="up" aria-label="Сдвинуть поле вверх">↑</button
+          ><button data-pan="down" aria-label="Сдвинуть поле вниз">↓</button
+          ><button data-pan="right" aria-label="Сдвинуть поле вправо">→</button
+          ><button id="fit">Fit all</button>
+        </div>
+        <p class="hint">
+          На широком экране: drag карточки. Alt + стрелки на карточке: изменить
+          placement. Список на телефоне сохраняет те же данные; drag не
+          требуется. Масштаб и сдвиг относятся только к карте.
+        </p>
+      </details>
+      <section class="local-section">
+        <p id="dirty" role="status">Каноническое размещение</p>
+        <button id="save" class="primary">Save local override</button
+        ><button id="reset">Reset</button>
+        <p class="hint">
+          Ручные позиции сохраняются только этой кнопкой. Исходный JSON не
+          изменяется.
+        </p>
+      </section>
+      <details>
+        <summary>Состояние, ссылки и кадры</summary>
+        <div class="row">
+          <button id="export-json">Export JSON</button
+          ><button id="copy-link">Copy deep link</button>
+        </div>
+        <label for="import-json">Import JSON (до 100 КБ)</label
+        ><input
+          id="import-json"
+          type="file"
+          accept=".json,application/json"
+        /><label for="export-size">Размер кадра</label
+        ><select id="export-size">
+          <option value="full">1920 × 1080</option>
+          <option value="viewport">Текущий viewport · карта fit</option>
+        </select>
+        <div class="row">
+          <button id="export-svg">Export SVG</button
+          ><button id="export-png">Export PNG</button>
+        </div>
+        <p class="hint">
+          Кадр без органов управления, с легендой, оговоркой и датой. На
+          телефоне экспортируется карта целиком, а не обрезанный список. Deep
+          link передаёт только reveal, без локальных правок.
+        </p>
+      </details>
+      <p id="freshness" class="warning"></p>
+      <p id="offline" class="hint">Подготовка офлайн-кэша…</p>
+      <details>
+        <summary>Клавиатура</summary>
+        <p class="hint">
+          P: управление · N / →: следующий шаг · B / ←: предыдущий · Enter:
+          детали · Escape: закрыть · Alt + стрелки: двигать карточку в режиме
+          ведущего. Горячие клавиши не перехватывают ввод в форме.
+        </p>
+      </details>
+    </aside>
+    <dialog id="detail" aria-labelledby="detail-title">
+      <div class="dialog-head">
+        <span class="micro">Карточка / происхождение</span
+        ><button id="close-detail" aria-label="Закрыть детали">×</button>
+      </div>
+      <div id="detail-content"></div>
+    </dialog>
+    <dialog id="confirm-reset" aria-labelledby="reset-title">
+      <h2 id="reset-title">Вернуть пустое поле?</h2>
+      <p>
+        Удалить локальное состояние, ручные позиции и фильтры? Карта вернётся в
+        L1 start. Исходный набор останется неизменным.
+      </p>
+      <div class="row">
+        <button id="cancel-reset" autofocus>Отмена</button
+        ><button id="confirm-reset-button" class="primary">Да, Reset</button>
+      </div>
+    </dialog>
+    <dialog id="link-dialog" aria-labelledby="link-title">
+      <h2 id="link-title">Ссылка на состояние</h2>
+      <p>Буфер обмена недоступен. Скопируй ссылку вручную.</p>
+      <label for="link-value">Deep link</label
+      ><input id="link-value" readonly /><button id="close-link">
+        Закрыть
+      </button>
+    </dialog>
+    <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+    <noscript
+      >Для интерактивной карты нужен JavaScript. Исходные карточки доступны в
+      data/products.json.</noscript
+    >
+  </body>
+</html>

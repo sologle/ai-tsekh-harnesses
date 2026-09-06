@@ -1,0 +1,33 @@
+// Auto-generated from external-ring.json — do not edit. Regenerate with scripts/make-json-modules.py
+export default {
+  "checkedAt": "2026-09-06T21:16:35.315171+00:00",
+  "expiresAt": "2026-09-07T21:16:35.315171+00:00",
+  "evidenceMethod": "HTTP GET of primary page, product identity/title only. No product runtime or capability audit.",
+  "disclaimer": "Направления для самостоятельного исследования; не разбирались и не рекомендованы в модуле",
+  "entries": [
+    {
+      "id": "aider",
+      "name": "Aider",
+      "url": "https://aider.chat/",
+      "sourceTitle": "Aider - AI Pair Programming in Your Terminal",
+      "httpStatus": 200,
+      "depth": "external-ring"
+    },
+    {
+      "id": "openhands",
+      "name": "OpenHands",
+      "url": "https://github.com/OpenHands/OpenHands",
+      "sourceTitle": "GitHub - OpenHands/OpenHands: 🙌 OpenHands: AI-Driven Development · GitHub",
+      "httpStatus": 200,
+      "depth": "external-ring"
+    },
+    {
+      "id": "cline",
+      "name": "Cline",
+      "url": "https://cline.bot/",
+      "sourceTitle": "Cline - AI Coding, Open Source and Uncompromised",
+      "httpStatus": 200,
+      "depth": "external-ring"
+    }
+  ]
+};
