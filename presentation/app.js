@@ -7,6 +7,15 @@
 
   const app = document.getElementById("app");
   const stage = document.getElementById("stage");
+
+  const ROOT_BASE = (() => {
+    let seg = location.pathname.replace(/[^/]*$/, "");
+    const idx = seg.indexOf("/presentation/");
+    if (idx >= 0) seg = seg.slice(0, idx + "/presentation/".length);
+    return seg;
+  })();
+  const withBase = (p) => ROOT_BASE.replace(/\/$/, "") + p;
+
   const drawer = document.getElementById("source-drawer");
   const sourceList = document.getElementById("source-list");
   const notes = document.getElementById("presenter-notes");
@@ -90,7 +99,7 @@
     if (reveal > 0) params.set("reveal", String(reveal));
     else params.delete("reveal");
     const query = params.toString();
-    const url = `/lesson/${currentLesson.number}${query ? `?${query}` : ""}#${currentScreen.id}`;
+    const url = `${withBase(`/lesson/${currentLesson.number}`)}${query ? `?${query}` : ""}#${currentScreen.id}`;
     history[mode === "push" ? "pushState" : "replaceState"]({}, "", url);
   }
 
@@ -237,7 +246,7 @@
     document.title = "AI-харнессы · презентация модуля";
     stage.innerHTML = `<section class="home"><div class="home-inner"><span class="micro">Дополнительный модуль · 4 урока</span>
       <h1>Выбирать, переносить и развивать <em>AI-харнессы</em></h1><p class="lead">${escapeHtml(data.promise)}</p>
-      <div class="lesson-list">${data.lessons.map((lesson) => `<a class="lesson-link" href="/lesson/${lesson.number}" data-route><span class="lesson-no">0${lesson.number}</span><div><h2>${escapeHtml(lesson.title)}</h2><p>${escapeHtml(lesson.outcome)}</p></div><div class="lesson-meta"><span>${lesson.screens.length} экранов</span><span>${escapeHtml(lesson.duration)}</span></div></a>`).join("")}</div>
+      <div class="lesson-list">${data.lessons.map((lesson) => `<a class="lesson-link" href="${withBase("/lesson/" + lesson.number)}" data-route><span class="lesson-no">0${lesson.number}</span><div><h2>${escapeHtml(lesson.title)}</h2><p>${escapeHtml(lesson.outcome)}</p></div><div class="lesson-meta"><span>${lesson.screens.length} экранов</span><span>${escapeHtml(lesson.duration)}</span></div></a>`).join("")}</div>
       <p class="footer-note">Стрелки и Space листают reveals. Presenter mode: добавь <code>?present=1</code>.</p></div></section>`;
     notes.hidden = true;
     progress.hidden = true;
@@ -310,15 +319,28 @@
   function renderNotFound() {
     currentLesson = null;
     currentScreen = null;
-    stage.innerHTML = `<section class="home"><div class="home-inner"><span class="micro">404</span><h1>Такого экрана нет</h1><p class="lead">Вернись к индексу модуля.</p><a class="primary-action" href="/" data-route>На главную</a></div></section>`;
+    stage.innerHTML = `<section class="home"><div class="home-inner"><span class="micro">404</span><h1>Такого экрана нет</h1><p class="lead">Вернись к индексу модуля.</p><a class="primary-action" href="${withBase("/")}" data-route>На главную</a></div></section>`;
     progress.hidden = true;
     notes.hidden = true;
   }
 
   function route() {
     closeSources();
-    const path = location.pathname.replace(/\/$/, "") || "/";
-    if (path === "/") renderHome();
+    const rawPath = location.pathname.startsWith(ROOT_BASE) ? location.pathname.slice(ROOT_BASE.length) : location.pathname;
+    const norm = rawPath.startsWith("/") ? rawPath : "/" + rawPath;
+    const path = norm.replace(/\/$/, "") || "/";
+    if (path === "/") {
+      const lessonParam = Number(new URLSearchParams(location.search).get("lesson"));
+      if (lessonParam >= 1 && lessonParam <= 4) {
+        resolveLessonRoute(lessonParam);
+        return;
+      }
+      if (new URLSearchParams(location.search).has("sources")) {
+        renderSourcesPage();
+        return;
+      }
+      renderHome();
+    }
     else if (path === "/sources") renderSourcesPage();
     else {
       const match = path.match(/^\/lesson\/([1-4])$/);
@@ -525,7 +547,8 @@
 
   function navigateRoute(href) {
     const url = new URL(href, location.origin);
-    if (isPresenter() && url.pathname.startsWith("/lesson/")) url.searchParams.set("present", "1");
+    if (!url.pathname.startsWith(ROOT_BASE) && ROOT_BASE !== "/") url.pathname = ROOT_BASE.replace(/\/$/, "") + url.pathname;
+    if (isPresenter() && decodeURIComponent(url.pathname).includes("/lesson/")) url.searchParams.set("present", "1");
     history.pushState({}, "", `${url.pathname}${url.search}${url.hash}`);
     route();
   }
@@ -549,14 +572,14 @@
       }
     }
 
-    history.replaceState({}, "", "/");
+    history.replaceState({}, "", ROOT_BASE);
     route();
     check(Boolean(stage.querySelector(".home")), "route / renders module index");
-    history.replaceState({}, "", "/sources");
+    history.replaceState({}, "", withBase("/sources"));
     route();
     check(stage.querySelectorAll(".source-row").length === Object.keys(data.sources).length, "route /sources renders source register");
     for (const lesson of data.lessons) {
-      history.replaceState({}, "", `/lesson/${lesson.number}?present=1#${lesson.screens[0].id}`);
+      history.replaceState({}, "", withBase(`/lesson/${lesson.number}`) + `?present=1#${lesson.screens[0].id}`);
       route();
       check(currentLesson?.number === lesson.number && currentScreen?.id === lesson.screens[0].id, `route /lesson/${lesson.number}`);
     }
@@ -636,7 +659,7 @@
   window.addEventListener("mousemove", controlsActivity, { passive: true });
   window.addEventListener("focus", controlsActivity);
 
-  fetch("/data/presentation.json", { cache: "no-store" })
+  fetch(withBase("/data/presentation.json"), { cache: "no-store" })
     .then((response) => {
       if (!response.ok) throw new Error(`presentation.json: HTTP ${response.status}`);
       return response.json();
