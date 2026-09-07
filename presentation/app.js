@@ -78,20 +78,33 @@
 
   function renderHero(content) {
     if (content.variant === "route") {
-      return `<div class="hero-route">${content.items.map((item) => `
-        <div class="route-node"><b>${escapeHtml(item.title)}</b><small>${escapeHtml(item.text)}</small></div>`).join("")}</div><p class="visual-caption">${escapeHtml(content.caption)}</p>`;
+      const nodes = content.items.map((item) => `
+        <div class="route-node"><b>${escapeHtml(item.title)}</b><small>${escapeHtml(item.text)}</small></div>`);
+      const arrows = content.arrows || [];
+      const flow = nodes.map((n, i) => i < nodes.length - 1
+        ? n + `<div class="route-arrow" aria-hidden="true"><span class="route-arrow-line"></span><span class="route-arrow-head"></span>${arrows[i] ? `<em>${escapeHtml(arrows[i])}</em>` : ""}</div>`
+        : n).join("");
+      return `<div class="route-flow">${flow}</div><p class="visual-caption">${escapeHtml(content.caption)}</p>`;
     }
     if (content.variant === "split") {
-      return `<div class="hero-split"><div class="split-node">${content.items.map((item) => `
-        <div class="route-node"><b>${escapeHtml(item.title)}</b><small>${escapeHtml(item.text)}</small></div>`).join("")}</div>
-        <div class="split-core">одна модель</div></div><p class="visual-caption">${escapeHtml(content.caption)}</p>`;
+      return `<div class="split-flow">
+        <div class="route-node split-env"><b>${escapeHtml(content.items[0].title)}</b><small>${escapeHtml(content.items[0].text)}</small></div>
+        <div class="split-link" aria-hidden="true"><em>подключается</em><span class="route-arrow-line"></span></div>
+        <div class="split-core">одна модель</div>
+        <div class="split-link" aria-hidden="true"><span class="route-arrow-line"></span><em>подключается</em></div>
+        <div class="route-node split-env"><b>${escapeHtml(content.items[1].title)}</b><small>${escapeHtml(content.items[1].text)}</small></div>
+      </div><p class="visual-caption">${escapeHtml(content.caption)}</p>`;
     }
     return `<div class="hero"><span class="hero-kicker">${escapeHtml(content.kicker)}</span><h2>${escapeHtml(content.headline)}</h2><p>${escapeHtml(content.subline)}</p></div><p class="visual-caption">${escapeHtml(content.caption)}</p>`;
   }
 
   function renderLayerDiagram(content) {
-    return `<div class="layer-stack">${content.steps.map((step) => `
-      <div class="layer-row"><b>${escapeHtml(step.title)}</b><span>${escapeHtml(step.text)}</span><em>${escapeHtml(step.cost)}</em></div>`).join("")}</div>
+    const bands = content.steps.map((step) => `
+      <div class="layer-band">
+        <div class="layer-band-head"><b>${escapeHtml(step.title)}</b><em>${escapeHtml(step.cost || "")}</em></div>
+        <span>${escapeHtml(step.text)}</span>
+      </div>`).join("");
+    return `<div class="layers-diagram"><div class="layers-spine" aria-hidden="true"><span>слои системы</span></div><div class="layers-bands">${bands}</div></div>
       <p class="visual-caption">${escapeHtml(content.caption)}</p>`;
   }
 
@@ -143,8 +156,11 @@
   }
 
   function renderRing(content) {
-    return `<div class="ring"><div class="ring-core">${escapeHtml(content.core)}</div><div class="ring-items">${content.items.map((item) => `
-      <div class="ring-item"><b>${escapeHtml(item.title)}</b><br><small>${escapeHtml(item.text)}</small></div>`).join("")}</div></div>
+    return `<div class="hub-diagram">
+      <div class="hub-core">${escapeHtml(content.core)}</div>
+      <div class="hub-spokes">${content.items.map((item) => `
+        <div class="hub-spoke"><span class="hub-line" aria-hidden="true"></span><div class="ring-item"><b>${escapeHtml(item.title)}</b><small>${escapeHtml(item.text)}</small></div></div>`).join("")}</div>
+    </div>
       <p class="visual-caption">${escapeHtml(content.caption)}</p>`;
   }
 
