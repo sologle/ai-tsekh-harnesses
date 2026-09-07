@@ -3,13 +3,12 @@
 (function(){
   var path = location.pathname;
   var params = new URLSearchParams(location.search);
-  if (path.indexOf("/presentation/") === 0 || path === "/presentation") {
+  var base = path.indexOf("/presentation/") >= 0 ? path.slice(0, path.indexOf("/presentation/") + "/presentation/".length) : path.replace(/[^/]*$/, "");
+  if (path.indexOf("/presentation/") >= 0) {
     var lesson = path.match(/\/lesson\/([1-4])/);
     if (lesson) params.set("lesson", lesson[1]);
     if (path.indexOf("/sources") >= 0) params.set("sources", "1");
-    location.replace("/presentation/" + (params.toString() ? "?" + params.toString() : "") + location.hash);
-  } else {
-    location.replace("/presentation/" + location.search + location.hash);
   }
+  location.replace(base + (params.toString() ? "?" + params.toString() : "") + location.hash);
 })();
 </script>
