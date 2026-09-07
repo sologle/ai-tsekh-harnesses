@@ -1,16 +1,17 @@
-<!doctype html><meta charset="utf-8"><title>AI.Цех · Харнессы</title>
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>AI.Цех: переход к материалам</title></head><body>
+<p>Переход к материалам модуля AI-харнессы.</p>
 <script>
-(function(){
-  var path = location.pathname;
-  var params = new URLSearchParams(location.search);
-  var idx = path.indexOf("/presentation/");
-  var base = idx >= 0 ? path.slice(0, idx + "/presentation/".length) : path.replace(/[^/]*$/, "");
-  if (idx >= 0) {
-    var lesson = path.match(/\/lesson\/([1-4])/);
-    if (lesson) params.set("lesson", lesson[1]);
-    if (path.indexOf("/sources") >= 0) params.set("sources", "1");
-    if (path.indexOf("/matrix") >= 0) params.set("matrix", "1");
-  }
-  location.replace(base + (params.toString() ? "?" + params.toString() : "") + location.hash);
+(() => {
+  const path = location.pathname;
+  const marker = path.indexOf('/presentation/');
+  const root = path.startsWith('/ai-tsekh-harnesses/') ? '/ai-tsekh-harnesses/presentation/' : '/presentation/';
+  const base = marker >= 0 ? path.slice(0, marker + '/presentation/'.length) : root;
+  const params = new URLSearchParams(location.search);
+  const lesson = path.match(/\/lesson\/([1-4])\/?$/);
+  if (lesson) params.set('lesson', lesson[1]);
+  else if (/\/matrix\/?$/.test(path)) params.set('matrix', '1');
+  else if (/\/sources\/?$/.test(path)) params.set('sources', '1');
+  location.replace(base + (params.size ? '?' + params.toString() : '') + location.hash);
 })();
-</script>
+</script></body></html>

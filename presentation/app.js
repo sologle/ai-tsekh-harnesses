@@ -1,469 +1,264 @@
 (() => {
   "use strict";
-
-  window.__presentationErrors = [];
-  window.addEventListener("error", (event) => window.__presentationErrors.push(event.message || "window error"));
-  window.addEventListener("unhandledrejection", (event) => window.__presentationErrors.push(String(event.reason || "unhandled rejection")));
-
-  const app = document.getElementById("app");
   const stage = document.getElementById("stage");
-  const ROOT_BASE = window.__BASE__ || (() => {
-    let seg = location.pathname.replace(/[^/]*$/, "");
-    const idx = seg.indexOf("/presentation/");
-    if (idx >= 0) seg = seg.slice(0, idx + "/presentation/".length);
-    return seg;
-  })();
-  const withBase = (p) => ROOT_BASE.replace(/\/$/, "") + p;
-
-  const drawer = document.getElementById("source-drawer");
-  const sourceList = document.getElementById("source-list");
-  const presenterBar = document.querySelector(".presenter-bar");
-
+  const status = document.getElementById("route-status");
+  const BASE = window.__BASE__;
+  const fields = [
+    ["autonomy", "Автономность"], ["customization", "Кастомизация"],
+    ["sourceStatus", "Код"], ["modelFreedom", "Модели"],
+    ["selfModifying", "Самоизменение"], ["interfaces", "Интерфейсы"],
+  ];
   let data;
-  let currentLesson = null;
-  let drawerSources = [];
-  let sourceReturnFocus = null;
+  let observer;
+  window.__presentationErrors = [];
+  window.addEventListener("error", e => window.__presentationErrors.push(e.message));
+  window.addEventListener("unhandledrejection", e => window.__presentationErrors.push(String(e.reason)));
+  const esc = (v = "") => String(v).replace(/[&<>"']/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"})[c]);
+  const value = v => Array.isArray(v) ? v.join(", ") : v;
+  const url = path => BASE + path.replace(/^\//, "");
+  const routeUrl = path => {
+    const u = new URL(url(path), location.origin);
+    if (new URLSearchParams(location.search).get("present") === "1") u.searchParams.set("present", "1");
+    return u.pathname + u.search + u.hash;
+  };
+  const link = (path, label) => `<a href="${esc(routeUrl(path))}" data-route>${esc(label)}</a>`;
+  const caption = c => c.caption ? `<p class="visual-caption">${esc(c.caption)}</p>` : "";
+  const arrow = (text = "→") => `<span class="route-arrow" aria-hidden="true"><span class="horizontal">${text}</span></span>`;
+  const node = item => `<div class="route-node"><b>${esc(item.title)}</b><small>${esc(item.text)}</small></div>`;
+  const logo = p => p.logo ? `<img class="product-logo" src="${esc(url(p.logo))}" alt="" width="22" height="22" loading="lazy">` : "";
+  const nav = () => `<nav class="page-nav" aria-label="Навигация модуля">${link("/", "Все уроки")}${link("/matrix", "Матрица")}${link("/sources", "Источники")}</nav>`;
 
-  const escapeHtml = (value = "") => String(value).replace(/[&<>'"]/g, (char) => ({
-    "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;"
-  })[char]);
-  const isPresenter = () => new URLSearchParams(location.search).get("present") === "1";
-  const findLesson = (number) => data.lessons.find((lesson) => lesson.number === Number(number));
-
-  function showToast(message) {
-    const toast = document.getElementById("toast");
-    toast.textContent = message;
-    toast.classList.add("show");
-    setTimeout(() => toast.classList.remove("show"), 2200);
-  }
-
-  function validatePayload(payload) {
-    if (!payload || payload.schemaVersion !== 1 || !Array.isArray(payload.lessons)) {
-      throw new Error("Неизвестная схема presentation.json");
-    }
+  function validatePayload(d) {
+    if (d?.schemaVersion !== 2 || d.lessons?.length !== 4 || d.matrix?.products?.length !== 13) throw new Error("Неполные данные модуля");
     const ids = new Set();
-    for (const lesson of payload.lessons) {
-      for (const screen of lesson.screens || []) {
-        if (!/^P[1-4]-\d{2}$/.test(screen.id) || ids.has(screen.id)) {
-          throw new Error(`Некорректный или повторный screen ID: ${screen.id}`);
-        }
-        ids.add(screen.id);
-        if (!screen.sources.length || screen.sources.some((id) => !payload.sources[id])) {
-          throw new Error(`Неполная provenance у ${screen.id}`);
-        }
+    for (const l of d.lessons) {
+      if (l.screens.filter(s => s.component === "MatrixBlock").length !== 1) throw new Error("Матрица отсутствует в уроке");
+      for (const s of l.screens) {
+        if (ids.has(s.id) || !s.sceneRefs?.length || !s.sources?.length || s.sources.some(id => !d.sources[id]) || !renderers[s.component]) throw new Error(`Нарушен контракт блока ${s.id}`);
+        ids.add(s.id);
       }
     }
-    if (ids.size !== 36) throw new Error(`Ожидалось 36 блоков, найдено ${ids.size}`);
-    if (!payload.matrix || !Array.isArray(payload.matrix.products)) throw new Error("Нет матрицы харнессов");
-  }
-
-  function setShellMode() {
-    ensureChrome();
-    const presenter = isPresenter();
-    app.classList.toggle("presentation-shell", presenter);
-    if (presenterBar) presenterBar.hidden = !presenter;
-    if (!presenter) app.classList.remove("controls-idle", "controls-hidden");
-  }
-
-  function updateNavigation() {
-    document.querySelectorAll(".lesson-nav a").forEach((link) => {
-      const href = link.getAttribute("href");
-      const active = currentLesson && (href === `/lesson/${currentLesson.number}` || href === `./lesson/${currentLesson.number}` || decodeURIComponent(new URL(href, location.origin).pathname).endsWith(`/lesson/${currentLesson.number}`));
-      if (active) link.setAttribute("aria-current", "page");
-      else link.removeAttribute("aria-current");
-    });
-  }
-
-  // ---------- component renderers (visuals, reveal-independent) ----------
-  function revealClass(index) { return ""; }
-
-  function renderHero(content) {
-    if (content.variant === "route") {
-      const nodes = content.items.map((item) => `
-        <div class="route-node"><b>${escapeHtml(item.title)}</b><small>${escapeHtml(item.text)}</small></div>`);
-      const arrows = content.arrows || [];
-      const flow = nodes.map((n, i) => i < nodes.length - 1
-        ? n + `<div class="route-arrow" aria-hidden="true"><span class="route-arrow-line"></span><span class="route-arrow-head"></span>${arrows[i] ? `<em>${escapeHtml(arrows[i])}</em>` : ""}</div>`
-        : n).join("");
-      return `<div class="route-flow">${flow}</div><p class="visual-caption">${escapeHtml(content.caption)}</p>`;
+    for (const p of d.matrix.products) {
+      if (fields.some(([key]) => !value(p[key]) || typeof value(p[key]) !== "string") || !p.scope || !p.note) throw new Error(`Неполный паспорт ${p.id}`);
     }
-    if (content.variant === "split") {
-      return `<div class="split-flow">
-        <div class="route-node split-env"><b>${escapeHtml(content.items[0].title)}</b><small>${escapeHtml(content.items[0].text)}</small></div>
-        <div class="split-link" aria-hidden="true"><em>подключается</em><span class="route-arrow-line"></span></div>
-        <div class="split-core">одна модель</div>
-        <div class="split-link" aria-hidden="true"><span class="route-arrow-line"></span><em>подключается</em></div>
-        <div class="route-node split-env"><b>${escapeHtml(content.items[1].title)}</b><small>${escapeHtml(content.items[1].text)}</small></div>
-      </div><p class="visual-caption">${escapeHtml(content.caption)}</p>`;
-    }
-    return `<div class="hero"><span class="hero-kicker">${escapeHtml(content.kicker)}</span><h2>${escapeHtml(content.headline)}</h2><p>${escapeHtml(content.subline)}</p></div><p class="visual-caption">${escapeHtml(content.caption)}</p>`;
   }
 
-  function renderLayerDiagram(content) {
-    const bands = content.steps.map((step) => `
-      <div class="layer-band">
-        <div class="layer-band-head"><b>${escapeHtml(step.title)}</b><em>${escapeHtml(step.cost || "")}</em></div>
-        <span>${escapeHtml(step.text)}</span>
-      </div>`).join("");
-    return `<div class="layers-diagram"><div class="layers-spine" aria-hidden="true"><span>слои системы</span></div><div class="layers-bands">${bands}</div></div>
-      <p class="visual-caption">${escapeHtml(content.caption)}</p>`;
+  function renderHero(c) {
+    if (c.variant === "split") return `<div class="split-flow">${node(c.items[0])}${arrow("←")}<div class="split-core">Одна модель</div>${arrow()}${node(c.items[1])}</div>${caption(c)}`;
+    return `<div class="route-flow">${c.items.map(node).join(arrow())}<p class="route-label">${esc(c.sequence)}</p></div>${caption(c)}`;
   }
-
-  function renderCards(content) {
-    return `<div class="card-grid">${content.cards.map((card) => `
-      <article class="info-card ${card.tone || ""}"><h3>${escapeHtml(card.title)}</h3><p>${escapeHtml(card.text)}</p></article>`).join("")}</div>
-      <p class="visual-caption">${escapeHtml(content.caption)}</p>`;
+  function renderLayers(c) {
+    return `<div class="layers-bands">${c.steps.map(s => `<div class="layer-band"><div class="layer-band-head"><b>${esc(s.title)}</b><em>${esc(s.cost)}</em></div><span>${esc(s.text)}</span></div>`).join("")}</div>${caption(c)}`;
   }
-
-  function renderMatrix(content) {
-    const columns = content.columns.map((c) => typeof c === "string" ? c : c.title);
-    return `<div class="criteria-table-wrap"><table class="criteria-table"><thead><tr>${columns.map((c) => `<th>${escapeHtml(c)}</th>`).join("")}</tr></thead>
-      <tbody>${content.rows.map((row) => `<tr>${row.map((cell, i) => `<td${i === 0 ? ' class="row-head"' : ""}>${escapeHtml(cell)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>
-      <p class="visual-caption">${escapeHtml(content.caption)}</p>`;
+  function renderCards(c) {
+    return `<div class="card-grid">${c.cards.map(x => `<article class="info-card"><h3>${esc(x.title)}</h3><p>${esc(x.text)}</p></article>`).join("")}</div>${caption(c)}`;
   }
-
-  function renderWorkflow(content) {
-    return `<ol class="workflow">${content.steps.map((step) => `<li><b>${escapeHtml(step.title)}</b><span>${escapeHtml(step.text)}</span></li>`).join("")}</ol>
-      <p class="visual-caption">${escapeHtml(content.caption)}</p>`;
+  function renderComparison(c) {
+    const table = `<div class="comparison-desktop"><table class="criteria-table"><caption>${esc(c.caption)}</caption><thead><tr>${c.columns.map(x => `<th scope="col">${esc(x)}</th>`).join("")}</tr></thead><tbody>${c.rows.map(row => `<tr><th scope="row">${esc(row[0])}</th>${row.slice(1).map(x => `<td>${esc(x)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
+    return table + `<div class="comparison-mobile">${c.rows.map(row => `<article class="product-card"><h3>${esc(row[0])}</h3><dl>${row.slice(1).map((x, i) => `<div class="property"><dt>${esc(c.columns[i + 1])}</dt><dd>${esc(x)}</dd></div>`).join("")}</dl></article>`).join("")}${caption(c)}</div>`;
   }
-
-  function renderAcceptance(content) {
-    const items = content.checks || content.items || [];
-    return `<div class="accept-panel">${items.map((item) => {
-      if (typeof item === "string") return `<label class="check"><input type="checkbox" tabindex="-1">${escapeHtml(item)}</label>`;
-      const tone = item.tone === "pass" ? "pass" : item.tone === "open" ? "open" : "";
-      return `<div class="check acceptance-row ${tone}"><b>${escapeHtml(item.title)}</b><span>${escapeHtml(item.text)}</span><em>${escapeHtml(item.status || "")}</em></div>`;
-    }).join("")}</div>
-      <p class="visual-caption">${escapeHtml(content.caption)}</p>`;
+  function renderWorkflow(c) {
+    return `<ol class="workflow">${c.steps.map(s => `<li><b>${esc(s.title)}</b><span>${esc(s.text)}</span></li>`).join("")}</ol>${(c.branches || []).map(b => `<p class="flow-branch">${esc(b)}</p>`).join("")}${caption(c)}`;
   }
-
-  function renderChecklist(content) {
-    return `<ol class="checklist">${content.items.map((item) => `<li><div><b>${escapeHtml(item.title)}</b><span>${escapeHtml(item.text)}</span></div></li>`).join("")}</ol>
-      <p class="visual-caption">${escapeHtml(content.caption)}</p>`;
+  function renderChecklist(c) {
+    return `<ul class="checklist">${c.items.map(x => `<li><b>${esc(x.title)}</b><span>${esc(x.text)}</span></li>`).join("")}</ul>${caption(c)}`;
   }
-
-  function renderDecision(content) {
-    const options = content.options || content.items || [];
-    const formula = content.formula ? `<div class="decision-formula">${content.formula.map((f) => `<span>${escapeHtml(f)}</span>`).join("<i>→</i>")}</div>` : "";
-    return `<div class="decision">${formula}${options.map((o) => `<div class="decision-row"><b>${escapeHtml(o.title)}</b><span>${escapeHtml(o.text)}</span></div>`).join("")}</div>
-      <p class="visual-caption">${escapeHtml(content.caption)}</p>`;
+  function renderAcceptance(c) {
+    return `<div class="accept-panel">${c.checks.map(x => `<div class="acceptance-row"><b>${esc(x.title)}</b><span>${esc(x.text)}</span><em>${esc(x.status)}</em></div>`).join("")}</div>${caption(c)}`;
   }
-
-  function renderStats(content) {
-    const items = content.stats || content.items || [];
-    return `<div class="stats">${items.map((item) => `<div class="stat"><b>${escapeHtml(item.value)}</b><span>${escapeHtml(item.label)}</span></div>`).join("")}</div>
-      ${content.limitation ? `<span class="qualitative">${escapeHtml(content.limitation)}</span>` : ""}
-      <p class="visual-caption">${escapeHtml(content.caption)}</p>`;
+  function renderDecision(c) {
+    return `<div class="decision">${c.formula ? `<div class="decision-formula">${c.formula.map(x => `<span>${esc(x)}</span>`).join(`<i>${esc(c.connector || "≠")}</i>`)}</div>` : ""}${c.items.map(x => `<div class="decision-row"><b>${esc(x.title)}</b><span>${esc(x.text)}</span></div>`).join("")}</div>${caption(c)}`;
   }
-
-  function renderRing(content) {
-    return `<div class="hub-diagram">
-      <div class="hub-core">${escapeHtml(content.core)}</div>
-      <div class="hub-spokes">${content.items.map((item) => `
-        <div class="hub-spoke"><span class="hub-line" aria-hidden="true"></span><div class="ring-item"><b>${escapeHtml(item.title)}</b><small>${escapeHtml(item.text)}</small></div></div>`).join("")}</div>
-    </div>
-      <p class="visual-caption">${escapeHtml(content.caption)}</p>`;
+  function renderArchitecture(c) {
+    return `<div class="architecture"><div class="shell-boundary"><b>${esc(c.shell.title)}</b><p>${esc(c.shell.text)}</p></div><div class="side-port"><b>${esc(c.input.title)}</b><p>${esc(c.input.text)}</p><p>Задача → харнесс<br>Наблюдение ← харнесс<br>Подтверждение → действие</p></div><div class="harness-boundary"><b>${esc(c.core)}</b><div class="diagram-node">${esc(c.model)}</div><ol class="loop">${c.loop.map(x => `<li>${esc(x)}</li>`).join("")}</ol><p class="loop-return">↶ ${esc(c.return)}</p></div></div>${caption(c)}`;
   }
-
-  function renderMatrixBlock(content) {
-    return `<p class="matrix-hint"><strong>${escapeHtml(content.title)}</strong> — ${escapeHtml(content.text)}</p>${renderFullMatrix(content.state)}`;
+  function renderShared(c) {
+    return `<div class="shared-core"><div class="shared-inputs">${c.cards.map(x => `<div class="diagram-node"><b>${esc(x.title)}</b><p>${esc(x.text)}</p></div>`).join("")}</div><p class="route-label">${esc(c.connection)}</p><div class="core"><b>${esc(c.core)}</b><p>${esc(c.knowledge)}</p></div></div>${caption(c)}`;
   }
-
-  function renderPersonalStack(content) {
-    return `<div class="ring"><div class="ring-core">${escapeHtml(content.core)}</div><div class="ring-items">${content.cards.map((card) => `
-      <div class="ring-item"><b>${escapeHtml(card.title)}</b><br><small>${escapeHtml(card.text)}</small></div>`).join("")}</div></div>
-      <span class="qualitative">Личный/авторский контур, не универсальная рекомендация</span><p class="visual-caption">${escapeHtml(content.caption)}</p>`;
+  function renderDocument(c) {
+    return `<div class="document-fields"><b>${esc(c.name)}</b><p>${esc(c.state)}</p><dl>${c.fields.map(f => `<dt>${esc(f.title)}</dt><dd>${esc(f.text)}</dd>`).join("")}</dl></div>${caption(c)}`;
   }
-
-  function renderFullMatrix(state) {
-    const m = data.matrix;
-    const rows = m.products.map((p) => {
-      return `<tr>
-        <td class="row-head">${p.logo ? `<img class="product-logo" src="${escapeHtml((ROOT_BASE + p.logo.replace(/^\.\//, "")))}" alt="" width="28" height="28" loading="lazy">` : ""}${escapeHtml(p.name)}<br><small>${escapeHtml(p.role)}</small></td>
-        <td>${escapeHtml(p.autonomy)}</td>
-        <td>${"★".repeat(p.customization)}<span class="sr-only"> ${p.customization} из 6</span></td>
-        <td>${escapeHtml(p.sourceStatus)}</td>
-        <td>${escapeHtml(p.modelFreedom)}</td>
-        <td>${escapeHtml(p.selfModifying)}</td>
-        <td>${escapeHtml(p.interfaces.join(", "))}</td></tr>`;
-    }).join("");
-    return `<div class="criteria-table-wrap matrix-full"><table class="criteria-table matrix">
-      <thead><tr><th>Продукт</th><th>Автономность</th><th>Кастомизация</th><th>Код</th><th>Модели</th><th>Самоизменение</th><th>Интерфейсы</th></tr></thead>
-      <tbody>${rows}</tbody></table></div>
-      `;
+  function renderControl(c) {
+    return `<div class="control-plane"><div class="control-lane"><b>Исполнение</b><p>${esc(c.request)}</p></div><div class="control-lane"><b>Контроль до действия</b><div class="control-gate">${esc(c.gate)}</div></div><div class="control-lane"><b>Разрешено ↓</b><p>${esc(c.action)}</p></div><div class="control-lane"><b>Проверка после</b><p>${esc(c.result)}</p></div><p class="flow-branch">${esc(c.denied)}</p></div>${caption(c)}`;
   }
-
+  function renderTree(c) {
+    const branch = nodes => `<ul>${nodes.map(n => `<li><div class="tree-row">${n.example ? `<a id="file-${esc(n.id)}" href="#example-${esc(n.id)}" data-anchor>${esc(n.name)}</a>` : `<b>${esc(n.name)}</b>`}<span class="purpose">${esc(n.purpose)}</span></div>${n.children ? branch(n.children) : ""}</li>`).join("")}</ul>`;
+    const flatten = nodes => nodes.flatMap(n => [n, ...flatten(n.children || [])]);
+    return `<div class="tree">${branch(c.nodes)}</div><div class="tree-examples">${flatten(c.nodes).filter(n => n.example).map(n => `<section id="example-${esc(n.id)}" tabindex="-1"><h3>${esc(n.name)}</h3><p>${esc(n.example)}</p><a href="#file-${esc(n.id)}" data-anchor>К файлу в дереве</a></section>`).join("")}</div>${caption(c)}`;
+  }
+  function renderFullMatrix(prefix, focus = "") {
+    const products = data.matrix.products;
+    const rows = products.map(p => `<tr data-product="${esc(p.id)}"${p.id === focus ? ' class="focus-product"' : ""}><th scope="row"><div class="product-head">${logo(p)}<div><b>${esc(p.name)}</b><small>${esc(p.scope)}</small></div></div></th>${fields.map(([k]) => `<td data-field="${k}">${esc(value(p[k]))}</td>`).join("")}</tr>`).join("");
+    const table = `<div class="matrix-desktop"><table class="criteria-table matrix"><caption>Полное сравнение: 13 продуктов, шесть независимых свойств</caption><thead><tr><th scope="col">Продукт и компонент</th>${fields.map(([, title]) => `<th scope="col">${esc(title)}</th>`).join("")}</tr></thead><tbody>${rows}</tbody></table></div>`;
+    const cards = `<div class="matrix-mobile"><nav class="product-jump" aria-label="Продукты в матрице">${products.map(p => `<a href="#${prefix}-${p.id}" data-anchor>${esc(p.name)}</a>`).join("")}</nav>${products.map(p => `<article class="product-card" id="${prefix}-${p.id}" tabindex="-1" data-product="${p.id}"><header>${logo(p)}<div><h3>${esc(p.name)}</h3><p>${esc(p.scope)}</p></div></header><dl>${fields.map(([k, title]) => `<div class="property"><dt>${esc(title)}</dt><dd data-field="${k}">${esc(value(p[k]))}</dd></div>`).join("")}</dl><p class="product-note">${esc(p.note)}</p>${link(`/sources#product-${p.id}`, "Основания и границы")}</article>`).join("")}</div>`;
+    const notes = `<div class="matrix-notes"><p>«Не подтверждено» обозначает пробел проверки, а не невозможность функции. Открытый компонент не делает открытыми модель и внешний сервис.</p><details><summary>Пояснения к продуктам</summary><ul>${products.map(p => `<li><b>${esc(p.name)}.</b> ${esc(p.note)} ${link(`/sources#product-${p.id}`, "Источники")}</li>`).join("")}</ul></details></div>`;
+    return table + cards + notes;
+  }
   const renderers = {
-    Hero: renderHero,
-    LayerDiagram: renderLayerDiagram,
-    ParallelCards: renderCards,
-    CriteriaMatrix: renderMatrix,
-    Workflow: renderWorkflow,
-    AcceptancePanel: renderAcceptance,
-    SourceProof: renderCards,
-    RiskCard: renderCards,
-    ActionChecklist: renderChecklist,
-    DecisionTitle: renderDecision,
-    Stats: renderStats,
-    Ring: renderRing,
-    MatrixBlock: renderMatrixBlock,
-    PersonalStack: renderPersonalStack,
+    Hero: renderHero, LayerDiagram: renderLayers, ParallelCards: renderCards,
+    CriteriaMatrix: renderComparison, Workflow: renderWorkflow, AcceptancePanel: renderAcceptance,
+    ActionChecklist: renderChecklist, DecisionTitle: renderDecision, Architecture: renderArchitecture,
+    SharedCore: renderShared, Document: renderDocument, ControlPlane: renderControl, ProjectTree: renderTree,
+    MatrixBlock: (c, id) => `<p class="matrix-hint">${esc(c.text)}</p>${renderFullMatrix(id, c.focus)}`,
   };
-
-  function renderVisual(screen) {
-    const renderer = renderers[screen.component];
-    if (!renderer) throw new Error(`Неизвестный component: ${screen.component}`);
-    return renderer(screen.content);
+  function block(s) {
+    return `<section class="screen block${s.component === "MatrixBlock" ? " matrix-block" : ""}" id="${s.id}" aria-labelledby="t-${s.id}"><div class="screen-inner"><div class="screen-head"><span class="micro">${esc(s.micro)}</span><h2 id="t-${s.id}">${esc(s.title)}</h2><p class="lead">${esc(s.lead)}</p></div><div class="visual" data-component="${s.component}">${renderers[s.component](s.content, s.id)}</div>${s.paragraphs?.length ? `<div class="explanation">${s.paragraphs.map(p => `<p>${esc(p)}</p>`).join("")}</div>` : ""}<div class="source-links">${s.sources.map(id => link(`/sources#${id}`, data.sources[id].title)).join("")}</div></div></section>`;
   }
-
-  // ---------- long grid rendering ----------
-  function blockHtml(screen) {
-    const notes = isPresenter() && screen.presenterNotes ? `
-      <aside class="inline-notes"><b>Реплика:</b> ${escapeHtml(screen.presenterNotes.cue)} <b>· Дальше:</b> ${escapeHtml(screen.presenterNotes.next)} <b>· Риск:</b> ${escapeHtml(screen.presenterNotes.risk)}</aside>` : "";
-    return `<section class="screen block" id="${escapeHtml(screen.id)}" aria-labelledby="t-${escapeHtml(screen.id)}">
-      <div class="screen-inner">
-        <div class="screen-head"><div><span class="micro">${escapeHtml(screen.micro)}</span><h2 id="t-${escapeHtml(screen.id)}">${escapeHtml(screen.title)}</h2><p class="lead">${escapeHtml(screen.lead)}</p></div></div>
-        <div class="visual" data-component="${escapeHtml(screen.component)}">${renderVisual(screen)}</div>
-        ${notes}
-      </div>
-    </section>`;
+  function renderLesson(l) {
+    document.title = `Урок ${l.number} · ${l.title}`;
+    stage.innerHTML = `<article class="long-grid" data-lesson="${l.number}"><header class="lesson-header">${nav()}<span class="micro">Урок ${l.number}</span><h1 tabindex="-1">${esc(l.title)}</h1><p class="lead">${esc(l.outcome)}</p></header>${l.screens.map(block).join("")}<footer class="grid-footer"><p>${esc(l.assignment)}</p><nav class="page-nav" aria-label="Следующий шаг">${l.number > 1 ? link(`/lesson/${l.number - 1}`, "Предыдущий урок") : ""}${l.number < 4 ? link(`/lesson/${l.number + 1}`, "Следующий урок") : ""}${link("/", "Все уроки")}</nav></footer></article>`;
   }
-
-  function renderLessonGrid(lesson) {
-    currentLesson = lesson;
-    document.title = `Урок ${lesson.number} · ${lesson.title}`;
-    const blocks = lesson.screens.map((screen) => blockHtml(screen)).join("");
-    const prevL = lesson.number > 1 ? `<a class="lesson-switch" href="${withBase("/lesson/" + (lesson.number - 1))}" data-route>← Урок ${lesson.number - 1}</a>` : `<span class="lesson-switch muted">← Урок ${lesson.number - 1}</span>`;
-    const nextL = lesson.number < 4 ? `<a class="lesson-switch" href="${withBase("/lesson/" + (lesson.number + 1))}" data-route>Урок ${lesson.number + 1} →</a>` : `<span class="lesson-switch muted">Урок ${lesson.number + 1} →</span>`;
-    const lessonNav = `<nav class="page-nav" aria-label="Навигация модуля">
-      <a class="lesson-switch" href="${withBase("/")}" data-route>Все уроки</a>
-      ${prevL}${nextL}
-      <a class="lesson-switch" href="${withBase("/matrix")}" data-route>Матрица</a>
-    </nav>`;
-    stage.innerHTML = `<section class="long-grid" data-lesson="${lesson.number}">
-      <header class="lesson-header"><nav class="page-nav top" aria-label="Навигация модуля"><a class="lesson-switch" href="${withBase("/")}" data-route>← Все уроки</a><a class="lesson-switch" href="${withBase("/matrix")}" data-route>Матрица</a></nav><span class="micro">Урок ${lesson.number} · ${escapeHtml(lesson.duration || "")}</span><h1>${escapeHtml(lesson.title)}</h1><p class="lead">${escapeHtml(lesson.outcome)}</p></header>
-      ${blocks}
-      <footer class="grid-footer">${lessonNav}</footer>
-    </section>`;
-    renderSourcesForLesson(lesson);
-    updateNavigation();
-    setShellMode();
-  }
-
-  function renderSourcesForLesson(lesson) {
-    drawerSources = [...new Set(lesson.screens.flatMap((s) => s.sources))];
-    renderDrawerSources();
-  }
-
-  function renderDrawerSources() {
-    const list = drawerSources.map((id) => [id, data.sources[id]]).filter(([, s]) => s);
-    sourceList.innerHTML = list.length ? list.map(([id, source]) => `<article class="drawer-source"><h3>${escapeHtml(source.title)}</h3><p>${escapeHtml(source.claim)}</p><a href="${escapeHtml(source.url)}" ${source.url.startsWith("http") ? 'target="_blank" rel="noreferrer"' : ""}>${escapeHtml(id)} · открыть источник</a></article>`).join("") : "<p>На этой странице нет источников.</p>";
-  }
-
-  // DS: progress bar + dot navigation
-  function ensureChrome() {
-    if (!document.querySelector(".progress-bar")) {
-      const bar = document.createElement("div");
-      bar.className = "progress-bar";
-      document.body.appendChild(bar);
-      window.addEventListener("scroll", () => {
-        const h = document.documentElement;
-        const max = h.scrollHeight - h.clientHeight;
-        bar.style.width = (max > 0 ? (h.scrollTop / max) * 100 : 0) + "%";
-      }, { passive: true });
-    }
-  }
-
   function renderHome() {
-    currentLesson = null;
-    document.title = "AI-харнессы · презентация модуля";
-    stage.innerHTML = `<section class="home"><div class="home-inner"><span class="micro">Дополнительный модуль · 4 урока</span>
-      <h1>Выбирать, переносить и развивать <em>AI-харнессы</em></h1><p class="lead">${escapeHtml(data.promise)}</p>
-      <div class="lesson-list">${data.lessons.map((lesson) => `<a class="lesson-link" href="${withBase("/lesson/" + lesson.number)}" data-route><span class="lesson-no">0${lesson.number}</span><div><h2>${escapeHtml(lesson.title)}</h2><p>${escapeHtml(lesson.outcome)}</p></div><div class="lesson-meta"><span>${lesson.screens.length} блоков</span><span>${escapeHtml(lesson.duration || "")}</span></div></a>`).join("")}</div>
-      <a class="lesson-link matrix-link" href="${withBase("/matrix")}" data-route><span class="lesson-no">★</span><div><h2>Матрица харнессов</h2><p>Все 13 продуктов: автономность, кастомизация, код, модели, самоизменение</p></div><div class="lesson-meta"><span>13 строк</span><span>полная</span></div></a>
-      <nav class="page-nav"><a class="lesson-switch" href="${withBase("/sources")}" data-route>Источники</a><a class="lesson-switch" href="${withBase("/matrix")}" data-route>Матрица</a></nav>
-      <p class="footer-note">Каждый урок — один длинный grid: веди запись сверху вниз, ничего не листай по слайдам.</p></div></section>`;
-    drawerSources = [];
-    renderDrawerSources();
-    updateNavigation();
-    setShellMode();
+    document.title = data.title;
+    stage.innerHTML = `<section class="home-inner"><span class="micro">AI.Цех · дополнительный модуль</span><h1 tabindex="-1">Выбираем, переносим и развиваем AI-харнессы</h1><p class="lead">${esc(data.promise)}</p><div class="lesson-list">${data.lessons.map(l => `<a class="lesson-link" href="${esc(routeUrl(`/lesson/${l.number}`))}" data-route><span class="lesson-no">Урок ${l.number}</span><h2>${esc(l.title)}</h2><p>${esc(l.outcome)}</p></a>`).join("")}</div><div class="matrix-link"><h2>${link("/matrix", "Матрица харнессов")}</h2><p>Все 13 продуктов: автономность, кастомизация, код, модели, самоизменение и интерфейсы.</p></div>${nav()}<p class="footer-note">Уроки читаются последовательно; матрица доступна и на отдельной странице.</p></section>`;
   }
-
   function renderMatrixPage() {
-    currentLesson = null;
-    document.title = "Матрица харнессов · AI-харнессы";
-    stage.innerHTML = `<section class="home matrix-page"><div class="home-inner"><nav class="page-nav top"><a class="lesson-switch" href="${withBase("/")}" data-route>← Все уроки</a></nav><span class="micro">Матрица · 13 продуктов · раскрывается по мере уроков</span><h1>Матрица <em>харнессов</em></h1><p class="lead">${escapeHtml(data.matrix.provenanceNote)}</p></div></section>
-      <section class="screen block"><div class="screen-inner"><div class="visual">${renderFullMatrix("ALL")}</div></div></section>`;
-    drawerSources = ["AUTHOR-MODEL"];
-    renderDrawerSources();
-    updateNavigation();
-    setShellMode();
+    document.title = "Матрица харнессов · AI.Цех";
+    stage.innerHTML = `<article class="matrix-page"><header class="page-intro">${nav()}<span class="micro">Полное сравнение</span><h1 tabindex="-1">Матрица харнессов</h1><p class="lead">Сравниваем режим работы, способы изменения, код, модели, самоизменение и интерфейсы. Ограничения конфигурации указаны рядом со значениями.</p></header><section class="screen matrix-block"><div class="screen-inner">${renderFullMatrix("matrix")}</div></section></article>`;
   }
-
-
+  function sourceHref(source) {
+    if (/^https:\/\//.test(source.url || "")) return source.url;
+    return source.url ? url(source.url) : "";
+  }
   function renderSourcesPage() {
-    currentLesson = null;
-    document.title = "Источники · AI-харнессы";
-    const rows = Object.entries(data.sources).map(([id, source]) => `<article class="source-row" id="${escapeHtml(id)}"><code>${escapeHtml(id)}</code><div><h3>${escapeHtml(source.title)}</h3><p>${escapeHtml(source.claim)}</p><a href="${escapeHtml(source.url)}" ${source.url.startsWith("http") ? 'target="_blank" rel="noreferrer"' : ""}>Открыть источник</a></div></article>`).join("");
-    stage.innerHTML = `<section class="sources-page"><span class="micro">Provenance · актуальность</span><h1>Факт, авторская модель и личный опыт разделены</h1><p class="lead">Product claims ведут к первичным источникам. Авторские классификации и локальные demo contracts не маскируются под отраслевой стандарт.</p><div class="source-register">${rows}</div></section>`;
-    drawerSources = [];
-    renderDrawerSources();
-    updateNavigation();
-    setShellMode();
+    document.title = "Источники и основания · AI.Цех";
+    const sources = Object.entries(data.sources).map(([id, s]) => `<section class="source-row" id="${id}" tabindex="-1"><h2>${esc(s.title)}</h2><p>${esc(s.claim)}</p>${sourceHref(s) ? `<a href="${esc(sourceHref(s))}">${s.kind === "specification" ? "Открыть учебный контракт" : "Открыть первичный источник"}</a>` : `<p>${esc(s.explanation)}</p>`}</section>`).join("");
+    const facts = data.matrix.products.map(p => `<section class="source-row" id="product-${p.id}" tabindex="-1"><h2>${esc(p.name)}: основания свойств</h2><p>${esc(p.scope)}. ${esc(p.note)}</p><dl>${fields.map(([key, title]) => { const f = p.facts[key]; return `<dt>${esc(title)}</dt><dd>${esc(value(p[key]))}. ${esc(f.scope)} ${f.sourceIds.map(id => link(`/sources#${id}`, data.sources[id].title)).join(" · ")}</dd>`; }).join("")}</dl></section>`).join("");
+    stage.innerHTML = `<article class="sources-page">${nav()}<span class="micro">Источники и основания</span><h1 tabindex="-1">Разделяем факты, объяснения и требования к демонстрациям</h1><p class="lead">Сведения о продуктах связываем с первичными источниками. Учебные схемы и личный опыт не заменяют воспроизводимый запуск.</p>${sources}${facts}${nav()}</article>`;
   }
-
-  function openSources() {
-    sourceReturnFocus = document.activeElement;
-    drawer.classList.add("open");
-    drawer.setAttribute("aria-hidden", "false");
-    drawer.querySelector("button").focus();
+  function normalizeLegacyRoute() {
+    const u = new URL(location.href);
+    const lesson = u.searchParams.get("lesson");
+    const view = u.searchParams.get("view");
+    let path = /^[1-4]$/.test(lesson || "") ? `lesson/${lesson}` : u.searchParams.has("matrix") || view === "matrix" ? "matrix" : u.searchParams.has("sources") || view === "sources" ? "sources" : "";
+    if (!path) return;
+    for (const key of ["lesson", "matrix", "sources", "view"]) u.searchParams.delete(key);
+    u.pathname = url(path);
+    history.replaceState(history.state, "", u);
   }
-
-  function closeSources() {
-    if (!drawer.classList.contains("open")) return;
-    drawer.classList.remove("open");
-    drawer.setAttribute("aria-hidden", "true");
-    if (sourceReturnFocus instanceof HTMLElement) sourceReturnFocus.focus();
-    sourceReturnFocus = null;
+  function chrome() {
+    observer?.disconnect();
+    document.querySelector(".dot-nav")?.remove();
+    stage.querySelectorAll("a").forEach((a, i) => { if (!a.id) a.id = `nav-${i}`; });
+    const blocks = [...stage.querySelectorAll(".block")];
+    if (blocks.length) {
+      const dots = document.createElement("nav");
+      dots.className = "dot-nav";
+      dots.setAttribute("aria-label", "Разделы урока");
+      dots.innerHTML = blocks.map(b => `<a href="#${b.id}" data-anchor aria-label="${esc(b.querySelector("h2").textContent)}"></a>`).join("");
+      document.body.append(dots);
+      observer = new IntersectionObserver(entries => {
+        for (const entry of entries) if (entry.isIntersecting) {
+          dots.querySelectorAll("a").forEach(a => a.removeAttribute("aria-current"));
+          dots.querySelector(`[href="#${entry.target.id}"]`)?.setAttribute("aria-current", "location");
+        }
+      }, {rootMargin: "-10% 0px -65% 0px"});
+      blocks.forEach(b => observer.observe(b));
+    }
+    progress();
   }
-
-  async function toggleFullscreen() {
-    try {
-      if (!document.fullscreenElement) await document.documentElement.requestFullscreen();
-      else await document.exitFullscreen();
-    } catch {
-      showToast("Fullscreen недоступен в этом браузере");
+  function progress() {
+    const h = document.documentElement;
+    document.querySelector(".progress-bar").style.width = `${h.scrollHeight > innerHeight ? scrollY / (h.scrollHeight - innerHeight) * 100 : 0}%`;
+  }
+  function setRecording() {
+    document.body.classList.toggle("recording", new URLSearchParams(location.search).get("present") === "1" && matchMedia("(min-width: 1280px)").matches);
+  }
+  function renderRoute() {
+    normalizeLegacyRoute();
+    setRecording();
+    const path = location.pathname.slice(BASE.length).replace(/\/$/, "");
+    const lesson = path.match(/^lesson\/([1-4])$/);
+    if (lesson) renderLesson(data.lessons.find(l => l.number === Number(lesson[1])));
+    else if (path === "matrix") renderMatrixPage();
+    else if (path === "sources") renderSourcesPage();
+    else if (!path || path === "index.html") renderHome();
+    else { document.title = "Страница не найдена"; stage.innerHTML = `<section class="home-inner"><h1 tabindex="-1">Такой страницы нет</h1><p>Можно вернуться к списку уроков.</p>${nav()}</section>`; }
+    chrome();
+    document.body.dataset.ready = "true";
+  }
+  function remember() {
+    const openDetails = [...stage.querySelectorAll("details")].map((d, i) => d.open ? i : -1).filter(i => i >= 0);
+    history.replaceState({...history.state, scroll: scrollY, focus: document.activeElement?.id, openDetails}, "");
+  }
+  function focusTarget(target, smooth = false) {
+    if (!target) return;
+    if (!target.matches("a, button, input, summary, [tabindex]")) target.tabIndex = -1;
+    target.focus({preventScroll: true});
+    const behavior = smooth && !matchMedia("(prefers-reduced-motion: reduce)").matches ? "smooth" : "instant";
+    target.scrollIntoView({behavior, block: "start"});
+  }
+  function restore(pop = false) {
+    if (pop && history.state?.scroll !== undefined) {
+      stage.querySelectorAll("details").forEach((d, i) => { d.open = history.state.openDetails?.includes(i) || false; });
+      document.getElementById(history.state.focus)?.focus({preventScroll: true});
+      window.scrollTo({top: history.state.scroll, behavior: "instant"});
+    } else if (location.hash) {
+      focusTarget(document.getElementById(decodeURIComponent(location.hash.slice(1))));
+    } else {
+      stage.querySelector("h1")?.focus({preventScroll: true});
+      window.scrollTo({top: 0, behavior: "instant"});
     }
   }
-
-  function handleAction(action) {
-    const actions = {
-      sources: openSources, "sources-close": closeSources, fullscreen: toggleFullscreen,
-      top: () => window.scrollTo({ top: 0, behavior: "smooth" }),
-    };
-    actions[action]?.();
-  }
-
-  function navigateRoute(href) {
-    const url = new URL(href, location.origin);
-    if (!url.pathname.startsWith(ROOT_BASE) && ROOT_BASE !== "/") url.pathname = ROOT_BASE.replace(/\/$/, "") + url.pathname;
-    history.pushState({}, "", `${url.pathname}${url.search}${url.hash}`);
-    route();
-  }
-
-  function route() {
-    closeSources();
-    const rawPath = location.pathname.startsWith(ROOT_BASE) ? location.pathname.slice(ROOT_BASE.length) : location.pathname;
-    const norm = rawPath.startsWith("/") ? rawPath : "/" + rawPath;
-    const path = norm.replace(/\/$/, "") || "/";
-    if (path === "/") {
-      const params = new URLSearchParams(location.search);
-      const lessonParam = Number(params.get("lesson"));
-      if (lessonParam >= 1 && lessonParam <= 4) { renderLessonGrid(findLesson(lessonParam)); return; }
-      if (params.has("matrix")) { renderMatrixPage(); return; }
-      if (params.has("sources")) { renderSourcesPage(); return; }
-      renderHome();
-    }
-    else if (path === "/sources") renderSourcesPage();
-    else if (path === "/matrix") renderMatrixPage();
-    else {
-      const match = path.match(/^\/lesson\/([1-4])$/);
-      if (match) renderLessonGrid(findLesson(Number(match[1])));
-      else renderNotFound();
-    }
-  }
-
-  function renderNotFound() {
-    currentLesson = null;
-    stage.innerHTML = `<section class="home"><div class="home-inner"><span class="micro">404</span><h1>Такой страницы нет</h1><p class="lead">Вернись к индексу модуля.</p><a class="primary-action" href="${withBase("/")}" data-route>На главную</a></div></section>`;
-    drawerSources = [];
-    renderDrawerSources();
-    updateNavigation();
-    setShellMode();
-  }
+  document.addEventListener("click", e => {
+    if (e.defaultPrevented || e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
+    const a = e.target.closest("a[data-route], a[data-anchor]");
+    if (!a || a.target || a.download) return;
+    const u = new URL(a.href);
+    if (u.origin !== location.origin || !u.pathname.startsWith(BASE)) return;
+    e.preventDefault();
+    remember();
+    history.pushState({}, "", u);
+    if (a.hasAttribute("data-anchor")) focusTarget(document.getElementById(decodeURIComponent(u.hash.slice(1))), true);
+    else { renderRoute(); restore(); status.textContent = document.title; }
+  });
+  history.scrollRestoration = "manual";
+  window.addEventListener("popstate", () => { renderRoute(); restore(true); status.textContent = document.title; });
+  window.addEventListener("scroll", progress, {passive: true});
+  window.addEventListener("resize", setRecording);
 
   async function runSelfTest() {
     const failures = [];
-    const checks = [];
-    const check = (condition, label) => {
-      checks.push(label);
-      if (!condition) failures.push(label);
-    };
-    const noOverflow = (label) => check(document.documentElement.scrollWidth <= window.innerWidth + 1, `${label}: no horizontal overflow`);
-
-    for (const lesson of data.lessons) {
-      renderLessonGrid(lesson);
-      check(stage.querySelectorAll(`.long-grid[data-lesson="${lesson.number}"] .block`).length === lesson.screens.length, `lesson ${lesson.number}: ${lesson.screens.length} blocks`);
-      check(stage.querySelectorAll(`.long-grid[data-lesson="${lesson.number}"] .screen-head h2`).length === lesson.screens.length, `lesson ${lesson.number}: all headings`);
-      const matrixRows = stage.querySelectorAll(`.long-grid[data-lesson="${lesson.number}"] .criteria-table.matrix tbody tr`).length;
-      check(matrixRows === 13, `lesson ${lesson.number}: full 13-row matrix`);
-      noOverflow(`lesson ${lesson.number} grid`);
+    let checks = 0;
+    const check = (ok, text) => { checks++; if (!ok) failures.push(text); };
+    for (const l of data.lessons) {
+      renderLesson(l);
+      check(stage.querySelectorAll(".block").length === l.screens.length, `lesson ${l.number}: blocks`);
+      check(stage.querySelectorAll(".matrix tbody tr").length === 13, `lesson ${l.number}: table`);
+      check(stage.querySelectorAll(".matrix-mobile .product-card").length === 13, `lesson ${l.number}: cards`);
+      check(stage.querySelectorAll(".matrix-mobile dt").length === 78, `lesson ${l.number}: semantic fields`);
+      check(!stage.innerText.includes("★"), `lesson ${l.number}: no ratings`);
+      check(document.documentElement.scrollWidth <= innerWidth + 1, `lesson ${l.number}: overflow`);
     }
     renderMatrixPage();
-    check(stage.querySelectorAll(".criteria-table.matrix tbody tr").length === 13, "matrix page: 13 product rows");
-    check(stage.querySelectorAll(".matrix .product-logo").length === 12, "matrix page: 12 logos (VelsClaude runs without an icon per DS)");
-    const matrixLogos = Array.from(stage.querySelectorAll(".matrix .product-logo"));
-    matrixLogos.forEach((img) => { img.loading = "eager"; });
-    await Promise.all(matrixLogos.map((img) => img.complete ? null : new Promise((res) => { img.onload = img.onerror = res; })));
-    const logosOk = matrixLogos.every((img) => img.complete && img.naturalWidth > 4);
-    check(logosOk, "matrix page: all logos load");
-    renderHome();
-    check(Boolean(stage.querySelector(".home")), "route / renders module index");
+    check(stage.querySelectorAll(".matrix [scope=row]").length === 13, "matrix row headers");
+    check(stage.querySelectorAll(".matrix caption").length === 1, "matrix caption");
     renderSourcesPage();
-    check(stage.querySelectorAll(".source-row").length === Object.keys(data.sources).length, "route /sources renders source register");
-
-    check(window.__presentationErrors.length === 0, "no captured runtime errors");
+    check(stage.querySelectorAll(".source-row").length === Object.keys(data.sources).length + 13, "sources and facts");
+    check(![...stage.querySelectorAll("a")].some(a => a.pathname === "/sources" && BASE !== "/"), "base-aware sources");
+    await document.fonts.ready;
+    check(document.fonts.check('16px "Igra Sans"'), "font loaded");
+    check(window.__presentationErrors.length === 0, "runtime errors");
+    renderRoute();
+    restore();
     const result = document.createElement("pre");
     result.id = "selftest-results";
     result.hidden = true;
-    result.dataset.status = failures.length ? "fail" : "pass";
-    result.textContent = JSON.stringify({ status: result.dataset.status, checks: checks.length, failures, runtimeErrors: window.__presentationErrors }, null, 2);
-    document.body.appendChild(result);
-    document.body.dataset.selftest = result.dataset.status;
+    result.textContent = JSON.stringify({status: failures.length ? "fail" : "pass", checks, failures, runtimeErrors: window.__presentationErrors});
+    document.getElementById(result.id)?.remove();
+    document.body.append(result);
+    document.body.dataset.selftest = failures.length ? "fail" : "pass";
   }
-
-  document.addEventListener("click", (event) => {
-    const actionTarget = event.target.closest("[data-action]");
-    if (actionTarget) {
-      event.preventDefault();
-      handleAction(actionTarget.dataset.action);
-      return;
-    }
-    const routeLink = event.target.closest("a[data-route]");
-    if (routeLink) {
-      event.preventDefault();
-      navigateRoute(routeLink.href);
-    }
-  });
-
-  document.addEventListener("keydown", (event) => {
-    const tag = event.target.tagName;
-    if (["INPUT", "TEXTAREA", "SELECT"].includes(tag)) return;
-    if (event.key === "Escape") { closeSources(); return; }
-    if (event.key.toLowerCase() === "f") toggleFullscreen();
-    else if (event.key.toLowerCase() === "s") drawer.classList.contains("open") ? closeSources() : openSources();
-    else if (event.key.toLowerCase() === "t") window.scrollTo({ top: 0, behavior: "smooth" });
-    else if (event.key.toLowerCase() === "c" && isPresenter()) {
-      const hidden = app.classList.toggle("controls-hidden");
-      showToast(hidden ? "Controls скрыты" : "Controls включены");
-    }
-  });
-
-  window.addEventListener("popstate", route);
-
-  fetch(withBase("/data/presentation.json"), { cache: "no-store" })
-    .then((response) => {
-      if (!response.ok) throw new Error(`presentation.json: HTTP ${response.status}`);
-      return response.json();
+  const cacheBuster = new URLSearchParams(location.search).get("cb");
+  fetch(url("data/presentation.json") + (cacheBuster ? `?cb=${encodeURIComponent(cacheBuster)}` : ""), {cache: "no-store"})
+    .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+    .then(async d => {
+      validatePayload(d); data = d; renderRoute(); await document.fonts.ready; restore();
+      if (new URLSearchParams(location.search).get("selftest") === "1") await runSelfTest();
     })
-    .then((payload) => {
-      validatePayload(payload);
-      data = payload;
-      route();
-      if (new URLSearchParams(location.search).get("selftest") === "1") runSelfTest();
-    })
-    .catch((error) => {
-      stage.innerHTML = `<section class="home"><div class="home-inner"><span class="micro">Ошибка запуска</span><h1>Презентация не загрузилась</h1><p class="lead">${escapeHtml(error.message)}</p><p>Запусти сайт через <code>python3 server.py</code>, а не как file://.</p></div></section>`;
+    .catch(error => {
+      stage.innerHTML = `<section class="home-inner"><h1 tabindex="-1">Не удалось загрузить данные</h1><p>Можно повторить загрузку или вернуться к списку уроков.</p><a href="${esc(location.href)}">Повторить загрузку</a> · ${link("/", "Все уроки")}</section>`;
+      status.textContent = "Ошибка загрузки";
       console.error(error);
     });
 })();

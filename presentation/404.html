@@ -1,11 +1,14 @@
-<!doctype html><meta charset="utf-8"><title>AI-харнессы · презентация</title>
+<!doctype html><html lang="ru"><meta charset="utf-8"><title>AI.Цех: переход к урокам</title>
 <script>
-(function(){
-  var base = location.pathname.indexOf("/presentation/") >= 0 ? "/presentation/" : "/";
-  var params = new URLSearchParams(location.search);
-  var lesson = location.pathname.match(/\/lesson\/([1-4])/);
+(() => {
+  const path = location.pathname;
+  const marker = path.indexOf("/presentation/");
+  const base = marker >= 0 ? path.slice(0, marker + 14) : "/";
+  const params = new URLSearchParams(location.search);
+  const lesson = path.match(/\/lesson\/([1-4])\/?$/);
   if (lesson) params.set("lesson", lesson[1]);
-  if (location.pathname.indexOf("/sources") >= 0) params.set("sources", "1");
-  location.replace(base + (params.toString() ? "?" + params.toString() : "") + location.hash);
+  else if (/\/matrix\/?$/.test(path)) params.set("matrix", "1");
+  else if (/\/sources\/?$/.test(path)) params.set("sources", "1");
+  location.replace(base + "?" + params.toString() + location.hash);
 })();
-</script>
+</script><p>Переход к материалам модуля.</p></html>

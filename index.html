@@ -1,2 +1,9 @@
-<!doctype html><meta charset="utf-8"><title>AI.Цех · Харнессы</title>
-<script>location.replace("/presentation/")</script>
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>AI.Цех: AI-харнессы</title></head><body>
+<p><a href="presentation/">Открыть модуль AI-харнессы</a></p>
+<script>
+const target = new URL('presentation/', location.href);
+target.search = location.search;
+target.hash = location.hash;
+location.replace(target.href);
+</script></body></html>
