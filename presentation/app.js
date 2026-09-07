@@ -177,8 +177,7 @@
 
   function renderFullMatrix(state) {
     const m = data.matrix;
-    const maxLesson = state === "L1" ? 1 : state === "L2" ? 2 : state === "L3" ? 3 : 4;
-    const rows = m.products.filter((p) => p.lesson <= maxLesson).map((p) => {
+    const rows = m.products.map((p) => {
       return `<tr>
         <td class="row-head">${p.logo ? `<img class="product-logo" src="${escapeHtml((ROOT_BASE + p.logo.replace(/^\.\//, "")))}" alt="" width="28" height="28" loading="lazy">` : ""}${escapeHtml(p.name)}<br><small>${escapeHtml(p.role)}</small></td>
         <td>${escapeHtml(p.autonomy)}</td>
@@ -392,20 +391,21 @@
     };
     const noOverflow = (label) => check(document.documentElement.scrollWidth <= window.innerWidth + 1, `${label}: no horizontal overflow`);
 
-    const expectRows = { 1: 1, 2: 6, 3: 10, 4: 13 };
     for (const lesson of data.lessons) {
       renderLessonGrid(lesson);
       check(stage.querySelectorAll(`.long-grid[data-lesson="${lesson.number}"] .block`).length === lesson.screens.length, `lesson ${lesson.number}: ${lesson.screens.length} blocks`);
       check(stage.querySelectorAll(`.long-grid[data-lesson="${lesson.number}"] .screen-head h2`).length === lesson.screens.length, `lesson ${lesson.number}: all headings`);
       const matrixRows = stage.querySelectorAll(`.long-grid[data-lesson="${lesson.number}"] .criteria-table.matrix tbody tr`).length;
-      check(matrixRows === expectRows[lesson.number], `lesson ${lesson.number}: matrix shows only studied rows (${expectRows[lesson.number]})`);
+      check(matrixRows === 13, `lesson ${lesson.number}: full 13-row matrix`);
       noOverflow(`lesson ${lesson.number} grid`);
     }
     renderMatrixPage();
     check(stage.querySelectorAll(".criteria-table.matrix tbody tr").length === 13, "matrix page: 13 product rows");
     check(stage.querySelectorAll(".matrix .product-logo").length === 12, "matrix page: 12 logos (VelsClaude runs without an icon per DS)");
-    await Promise.all(Array.from(stage.querySelectorAll(".matrix .product-logo")).map((img) => img.complete ? null : new Promise((res) => { img.onload = img.onerror = res; })));
-    const logosOk = Array.from(stage.querySelectorAll(".matrix .product-logo")).every((img) => img.complete && img.naturalWidth > 4);
+    const matrixLogos = Array.from(stage.querySelectorAll(".matrix .product-logo"));
+    matrixLogos.forEach((img) => { img.loading = "eager"; });
+    await Promise.all(matrixLogos.map((img) => img.complete ? null : new Promise((res) => { img.onload = img.onerror = res; })));
+    const logosOk = matrixLogos.every((img) => img.complete && img.naturalWidth > 4);
     check(logosOk, "matrix page: all logos load");
     renderHome();
     check(Boolean(stage.querySelector(".home")), "route / renders module index");

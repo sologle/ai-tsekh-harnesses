@@ -1,5 +1,12 @@
 
 /* ================= Nick Vels design system tokens ================= */
+@font-face {
+  font-family: "Igra Sans";
+  src: url("./assets/fonts/IgraSans.otf") format("opentype");
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+}
 :root {
   --nv-bg-900: #0F0F12;
   --nv-bg-800: #16161A;
@@ -557,8 +564,48 @@ a.lesson-switch:hover { color: var(--nv-text); border-color: var(--nv-border); }
 }
 
 /* matrix table horizontal scroll affordance on mobile */
-@media (max-width: 760px) {
-  .criteria-table { font-size: 11px; }
+/* matrix responsive: desktop = full table; mobile = readable product cards */
+@media screen and (max-width: 760px) {
+  .criteria-table.matrix { display: block; width: 100%; }
+  .criteria-table.matrix thead { display: none; }
+  .criteria-table.matrix tbody { display: grid; grid-template-columns: 1fr; gap: var(--s4); }
+  .criteria-table.matrix tr {
+    display: block;
+    background: var(--nv-surface);
+    border: 1px solid var(--nv-border);
+    border-radius: var(--r-panel);
+    padding: var(--s4);
+  }
+  .criteria-table.matrix td {
+    display: grid;
+    grid-template-columns: minmax(104px, 40%) 1fr;
+    gap: var(--s3);
+    align-items: baseline;
+    width: 100% !important;
+    padding: var(--s2) 0;
+    border-bottom: 1px solid var(--nv-border);
+    font-size: 13px;
+    text-align: left;
+  }
+  .criteria-table.matrix td:last-child { border-bottom: 0; }
+  .criteria-table.matrix td::before {
+    color: var(--nv-text-muted);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+  }
+  .criteria-table.matrix td:nth-child(1)::before { content: "Продукт"; }
+  .criteria-table.matrix td:nth-child(2)::before { content: "Автономность"; }
+  .criteria-table.matrix td:nth-child(3)::before { content: "Кастомизация"; }
+  .criteria-table.matrix td:nth-child(4)::before { content: "Код"; }
+  .criteria-table.matrix td:nth-child(5)::before { content: "Модели"; }
+  .criteria-table.matrix td:nth-child(6)::before { content: "Самоизменение"; }
+  .criteria-table.matrix td:nth-child(7)::before { content: "Интерфейсы"; }
+  .criteria-table.matrix .row-head {
+    grid-template-columns: minmax(104px, 40%) 1fr;
+    width: 100%;
+  }
 }
 
 /* overflow guards */
@@ -741,7 +788,7 @@ ol.checklist b { display: block; color: var(--nv-text); font-size: 14.5px; margi
 ol.checklist li span { display: block; color: var(--nv-text-muted); font-size: 13.5px; line-height: 1.5; }
 
 /* ================= typography per design system (screen scale) ================= */
-html { font-family: "Igra Sans", "Segoe UI", Arial, sans-serif; }
+html { font-family: "Igra Sans"; }
 body {
   background: var(--nv-bg-900);
   color: var(--nv-text);
