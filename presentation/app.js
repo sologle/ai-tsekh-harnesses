@@ -81,6 +81,11 @@
       return `<div class="hero-route">${content.items.map((item) => `
         <div class="route-node"><b>${escapeHtml(item.title)}</b><small>${escapeHtml(item.text)}</small></div>`).join("")}</div><p class="visual-caption">${escapeHtml(content.caption)}</p>`;
     }
+    if (content.variant === "split") {
+      return `<div class="hero-split"><div class="split-node">${content.items.map((item) => `
+        <div class="route-node"><b>${escapeHtml(item.title)}</b><small>${escapeHtml(item.text)}</small></div>`).join("")}</div>
+        <div class="split-core">одна модель</div></div><p class="visual-caption">${escapeHtml(content.caption)}</p>`;
+    }
     return `<div class="hero"><span class="hero-kicker">${escapeHtml(content.kicker)}</span><h2>${escapeHtml(content.headline)}</h2><p>${escapeHtml(content.subline)}</p></div><p class="visual-caption">${escapeHtml(content.caption)}</p>`;
   }
 
@@ -97,7 +102,8 @@
   }
 
   function renderMatrix(content) {
-    return `<div class="criteria-table-wrap"><table class="criteria-table"><thead><tr>${content.columns.map((c) => `<th>${escapeHtml(c.title)}</th>`).join("")}</tr></thead>
+    const columns = content.columns.map((c) => typeof c === "string" ? c : c.title);
+    return `<div class="criteria-table-wrap"><table class="criteria-table"><thead><tr>${columns.map((c) => `<th>${escapeHtml(c)}</th>`).join("")}</tr></thead>
       <tbody>${content.rows.map((row) => `<tr>${row.map((cell, i) => `<td${i === 0 ? ' class="row-head"' : ""}>${escapeHtml(cell)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>
       <p class="visual-caption">${escapeHtml(content.caption)}</p>`;
   }
@@ -109,7 +115,11 @@
 
   function renderAcceptance(content) {
     const items = content.checks || content.items || [];
-    return `<div class="accept-panel">${items.map((item) => `<label class="check"><input type="checkbox" tabindex="-1">${escapeHtml(item)}</label>`).join("")}</div>
+    return `<div class="accept-panel">${items.map((item) => {
+      if (typeof item === "string") return `<label class="check"><input type="checkbox" tabindex="-1">${escapeHtml(item)}</label>`;
+      const tone = item.tone === "pass" ? "pass" : item.tone === "open" ? "open" : "";
+      return `<div class="check acceptance-row ${tone}"><b>${escapeHtml(item.title)}</b><span>${escapeHtml(item.text)}</span><em>${escapeHtml(item.status || "")}</em></div>`;
+    }).join("")}</div>
       <p class="visual-caption">${escapeHtml(content.caption)}</p>`;
   }
 
