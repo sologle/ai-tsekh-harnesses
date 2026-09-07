@@ -110,7 +110,7 @@
 
   function renderCards(content) {
     return `<div class="card-grid">${content.cards.map((card) => `
-      <article class="info-card ${card.tone || ""}">${card.badge ? `<span class="badge ${card.badge === "verified" ? "verified" : card.tone === "risk" ? "warning" : "author"}">${escapeHtml(card.badge)}</span>` : ""}<h3>${escapeHtml(card.title)}</h3><p>${escapeHtml(card.text)}</p></article>`).join("")}</div>
+      <article class="info-card ${card.tone || ""}"><h3>${escapeHtml(card.title)}</h3><p>${escapeHtml(card.text)}</p></article>`).join("")}</div>
       <p class="visual-caption">${escapeHtml(content.caption)}</p>`;
   }
 
@@ -137,7 +137,7 @@
   }
 
   function renderChecklist(content) {
-    return `<ol class="checklist">${content.items.map((item) => `<li><b>${escapeHtml(item.title)}</b> ${escapeHtml(item.text)}</li>`).join("")}</ol>
+    return `<ol class="checklist">${content.items.map((item) => `<li><div><b>${escapeHtml(item.title)}</b><span>${escapeHtml(item.text)}</span></div></li>`).join("")}</ol>
       <p class="visual-caption">${escapeHtml(content.caption)}</p>`;
   }
 
@@ -190,7 +190,7 @@
     return `<div class="criteria-table-wrap matrix-full"><table class="criteria-table matrix">
       <thead><tr><th>Продукт</th><th>Автономность</th><th>Кастомизация</th><th>Код</th><th>Модели</th><th>Самоизменение</th><th>Интерфейсы</th></tr></thead>
       <tbody>${rows}</tbody></table></div>
-      <p class="qualitative">${escapeHtml(m.disclaimer)}</p>`;
+      `;
   }
 
   const renderers = {
@@ -257,7 +257,7 @@
 
   function renderDrawerSources() {
     const list = drawerSources.map((id) => [id, data.sources[id]]).filter(([, s]) => s);
-    sourceList.innerHTML = list.length ? list.map(([id, source]) => `<article class="drawer-source">${sourceBadge(source)}<h3>${escapeHtml(source.title)}</h3><p>${escapeHtml(source.claim)}</p><a href="${escapeHtml(source.url)}" ${source.url.startsWith("http") ? 'target="_blank" rel="noreferrer"' : ""}>${escapeHtml(id)} · открыть источник</a></article>`).join("") : "<p>На этой странице нет источников.</p>";
+    sourceList.innerHTML = list.length ? list.map(([id, source]) => `<article class="drawer-source"><h3>${escapeHtml(source.title)}</h3><p>${escapeHtml(source.claim)}</p><a href="${escapeHtml(source.url)}" ${source.url.startsWith("http") ? 'target="_blank" rel="noreferrer"' : ""}>${escapeHtml(id)} · открыть источник</a></article>`).join("") : "<p>На этой странице нет источников.</p>";
   }
 
   function renderHome() {
@@ -286,15 +286,11 @@
     setShellMode();
   }
 
-  function sourceBadge(source) {
-    const className = source.kind === "official" || source.kind === "paper" ? "verified" : source.kind === "author-model" ? "author" : source.kind === "course" ? "warning" : "info";
-    return `<span class="badge ${className}">${escapeHtml(source.kind)}</span>`;
-  }
 
   function renderSourcesPage() {
     currentLesson = null;
     document.title = "Источники · AI-харнессы";
-    const rows = Object.entries(data.sources).map(([id, source]) => `<article class="source-row" id="${escapeHtml(id)}"><code>${escapeHtml(id)}</code><div>${sourceBadge(source)}<h3>${escapeHtml(source.title)}</h3><p>${escapeHtml(source.claim)}</p><a href="${escapeHtml(source.url)}" ${source.url.startsWith("http") ? 'target="_blank" rel="noreferrer"' : ""}>Открыть источник</a></div></article>`).join("");
+    const rows = Object.entries(data.sources).map(([id, source]) => `<article class="source-row" id="${escapeHtml(id)}"><code>${escapeHtml(id)}</code><div><h3>${escapeHtml(source.title)}</h3><p>${escapeHtml(source.claim)}</p><a href="${escapeHtml(source.url)}" ${source.url.startsWith("http") ? 'target="_blank" rel="noreferrer"' : ""}>Открыть источник</a></div></article>`).join("");
     stage.innerHTML = `<section class="sources-page"><span class="micro">Provenance · актуальность</span><h1>Факт, авторская модель и личный опыт разделены</h1><p class="lead">Product claims ведут к первичным источникам. Авторские классификации и локальные demo contracts не маскируются под отраслевой стандарт.</p><div class="source-register">${rows}</div></section>`;
     drawerSources = [];
     renderDrawerSources();
