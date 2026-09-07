@@ -53,7 +53,7 @@
         }
       }
     }
-    if (ids.size !== 34) throw new Error(`Ожидалось 34 блока, найдено ${ids.size}`);
+    if (ids.size !== 36) throw new Error(`Ожидалось 36 блоков, найдено ${ids.size}`);
     if (!payload.matrix || !Array.isArray(payload.matrix.products)) throw new Error("Нет матрицы харнессов");
   }
 
@@ -160,18 +160,16 @@
 
   function renderFullMatrix(state) {
     const m = data.matrix;
-    const lessons = state === "L1" ? [1] : state === "L4" ? [1, 2, 3, 4] : state === "L2" ? [1, 2] : state === "L3" ? [1, 2, 3] : [1, 2, 3, 4];
-    const rows = m.products.map((p) => {
-      const dim = lessons.includes(p.lesson) ? "" : ' class="dim"';
-      const cells = `
-        <td class="row-head"><img class="product-logo" src="${escapeHtml((ROOT_BASE + p.logo.replace(/^\.\//, "")))}" alt="" width="28" height="28" loading="lazy"> ${escapeHtml(p.name)}${dim ? ' <span class="badge info">вне урока</span>' : ""}<br><small>${escapeHtml(p.role)}</small></td>
+    const maxLesson = state === "L1" ? 1 : state === "L2" ? 2 : state === "L3" ? 3 : 4;
+    const rows = m.products.filter((p) => p.lesson <= maxLesson).map((p) => {
+      return `<tr>
+        <td class="row-head"><img class="product-logo" src="${escapeHtml((ROOT_BASE + p.logo.replace(/^\.\//, "")))}" alt="" width="28" height="28" loading="lazy"> ${escapeHtml(p.name)}<br><small>${escapeHtml(p.role)}</small></td>
         <td>${escapeHtml(p.autonomy)}</td>
         <td>${"★".repeat(p.customization)}<span class="sr-only"> ${p.customization} из 6</span></td>
         <td>${escapeHtml(p.sourceStatus)}</td>
         <td>${escapeHtml(p.modelFreedom)}</td>
         <td>${escapeHtml(p.selfModifying)}</td>
-        <td>${escapeHtml(p.interfaces.join(", "))}</td>`;
-      return `<tr${dim}>${cells}</tr>`;
+        <td>${escapeHtml(p.interfaces.join(", "))}</td></tr>`;
     }).join("");
     return `<div class="criteria-table-wrap matrix-full"><table class="criteria-table matrix">
       <thead><tr><th>Продукт</th><th>Автономность</th><th>Кастомизация</th><th>Код</th><th>Модели</th><th>Самоизменение</th><th>Интерфейсы</th></tr></thead>
@@ -221,9 +219,17 @@
     document.title = `Урок ${lesson.number} · ${lesson.title}`;
     const blocks = lesson.screens.map((screen, i) => blockHtml(screen, i, lesson.screens.length)).join("");
     const jumpNav = `<nav class="block-jump" aria-label="Блоки урока">${lesson.screens.map((s, i) => `<a href="#${escapeHtml(s.id)}">${String(i + 1).padStart(2, "0")}</a>`).join("")}</nav>`;
+    const prevL = lesson.number > 1 ? `<a class="lesson-switch" href="${withBase("/lesson/" + (lesson.number - 1))}" data-route>← Урок ${lesson.number - 1}</a>` : `<span class="lesson-switch muted">← Урок ${lesson.number - 1}</span>`;
+    const nextL = lesson.number < 4 ? `<a class="lesson-switch" href="${withBase("/lesson/" + (lesson.number + 1))}" data-route>Урок ${lesson.number + 1} →</a>` : `<span class="lesson-switch muted">Урок ${lesson.number + 1} →</span>`;
+    const lessonNav = `<nav class="page-nav" aria-label="Навигация модуля">
+      <a class="lesson-switch" href="${withBase("/")}" data-route>Все уроки</a>
+      ${prevL}${nextL}
+      <a class="lesson-switch" href="${withBase("/matrix")}" data-route>Матрица</a>
+    </nav>`;
     stage.innerHTML = `<section class="long-grid" data-lesson="${lesson.number}">
-      <header class="lesson-header"><span class="micro">Урок ${lesson.number} · ${escapeHtml(lesson.duration || "")}</span><h1>${escapeHtml(lesson.title)}</h1><p class="lead">${escapeHtml(lesson.outcome)}</p>${jumpNav}</header>
+      <header class="lesson-header"><nav class="page-nav top" aria-label="Навигация модуля"><a class="lesson-switch" href="${withBase("/")}" data-route>← Все уроки</a><a class="lesson-switch" href="${withBase("/matrix")}" data-route>Матрица</a></nav><span class="micro">Урок ${lesson.number} · ${escapeHtml(lesson.duration || "")}</span><h1>${escapeHtml(lesson.title)}</h1><p class="lead">${escapeHtml(lesson.outcome)}</p>${jumpNav}</header>
       ${blocks}
+      <footer class="grid-footer">${lessonNav}</footer>
     </section>`;
     renderSourcesForLesson(lesson);
     updateNavigation();
@@ -247,6 +253,7 @@
       <h1>Выбирать, переносить и развивать <em>AI-харнессы</em></h1><p class="lead">${escapeHtml(data.promise)}</p>
       <div class="lesson-list">${data.lessons.map((lesson) => `<a class="lesson-link" href="${withBase("/lesson/" + lesson.number)}" data-route><span class="lesson-no">0${lesson.number}</span><div><h2>${escapeHtml(lesson.title)}</h2><p>${escapeHtml(lesson.outcome)}</p></div><div class="lesson-meta"><span>${lesson.screens.length} блоков</span><span>${escapeHtml(lesson.duration || "")}</span></div></a>`).join("")}</div>
       <a class="lesson-link matrix-link" href="${withBase("/matrix")}" data-route><span class="lesson-no">★</span><div><h2>Матрица харнессов</h2><p>Все 13 продуктов: автономность, кастомизация, код, модели, самоизменение</p></div><div class="lesson-meta"><span>13 строк</span><span>полная</span></div></a>
+      <nav class="page-nav"><a class="lesson-switch" href="${withBase("/sources")}" data-route>Источники</a><a class="lesson-switch" href="${withBase("/matrix")}" data-route>Матрица</a></nav>
       <p class="footer-note">Каждый урок — один длинный grid: веди запись сверху вниз, ничего не листай по слайдам.</p></div></section>`;
     drawerSources = [];
     renderDrawerSources();
@@ -257,7 +264,7 @@
   function renderMatrixPage() {
     currentLesson = null;
     document.title = "Матрица харнессов · AI-харнессы";
-    stage.innerHTML = `<section class="home matrix-page"><div class="home-inner"><span class="micro">Матрица · 13 продуктов</span><h1>Матрица <em>харнессов</em></h1><p class="lead">${escapeHtml(data.matrix.provenanceNote)}</p></div></section>
+    stage.innerHTML = `<section class="home matrix-page"><div class="home-inner"><nav class="page-nav top"><a class="lesson-switch" href="${withBase("/")}" data-route>← Все уроки</a></nav><span class="micro">Матрица · 13 продуктов · раскрывается по мере уроков</span><h1>Матрица <em>харнессов</em></h1><p class="lead">${escapeHtml(data.matrix.provenanceNote)}</p></div></section>
       <section class="screen block"><div class="screen-inner"><div class="visual">${renderFullMatrix("ALL")}</div></div></section>`;
     drawerSources = ["AUTHOR-MODEL"];
     renderDrawerSources();
@@ -358,18 +365,21 @@
     };
     const noOverflow = (label) => check(document.documentElement.scrollWidth <= window.innerWidth + 1, `${label}: no horizontal overflow`);
 
+    const expectRows = { 1: 1, 2: 6, 3: 10, 4: 13 };
     for (const lesson of data.lessons) {
       renderLessonGrid(lesson);
       check(stage.querySelectorAll(`.long-grid[data-lesson="${lesson.number}"] .block`).length === lesson.screens.length, `lesson ${lesson.number}: ${lesson.screens.length} blocks`);
       check(stage.querySelectorAll(`.long-grid[data-lesson="${lesson.number}"] .screen-head h2`).length === lesson.screens.length, `lesson ${lesson.number}: all headings`);
+      const matrixRows = stage.querySelectorAll(`.long-grid[data-lesson="${lesson.number}"] .criteria-table.matrix tbody tr`).length;
+      check(matrixRows === expectRows[lesson.number], `lesson ${lesson.number}: matrix shows only studied rows (${expectRows[lesson.number]})`);
       noOverflow(`lesson ${lesson.number} grid`);
     }
     renderMatrixPage();
-    check(stage.querySelectorAll(".criteria-table.matrix tbody tr").length === 13, "matrix: 13 product rows");
-    check(stage.querySelectorAll(".matrix .product-logo").length === 13, "matrix: 13 logos");
+    check(stage.querySelectorAll(".criteria-table.matrix tbody tr").length === 13, "matrix page: 13 product rows");
+    check(stage.querySelectorAll(".matrix .product-logo").length === 13, "matrix page: 13 logos");
     await Promise.all(Array.from(stage.querySelectorAll(".matrix .product-logo")).map((img) => img.complete ? null : new Promise((res) => { img.onload = img.onerror = res; })));
     const logosOk = Array.from(stage.querySelectorAll(".matrix .product-logo")).every((img) => img.complete && img.naturalWidth > 4);
-    check(logosOk, "matrix: all logos load");
+    check(logosOk, "matrix page: all logos load");
     renderHome();
     check(Boolean(stage.querySelector(".home")), "route / renders module index");
     renderSourcesPage();

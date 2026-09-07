@@ -18,25 +18,6 @@
 <body>
   <a class="skip-link" href="#stage">К содержанию</a>
   <div id="app" class="app" aria-live="polite">
-    <header class="topbar" data-auto-hide>
-      <a class="brand" href="/" data-route aria-label="На главную">
-        <span class="brand-mark" aria-hidden="true">AI</span>
-        <span><b>ЦЕХ</b><small>ХАРНЕССЫ</small></span>
-      </a>
-      <nav class="lesson-nav" aria-label="Уроки">
-        <a href="./lesson/1" data-route>01</a>
-        <a href="./lesson/2" data-route>02</a>
-        <a href="./lesson/3" data-route>03</a>
-        <a href="./lesson/4" data-route>04</a>
-        <a href="./matrix" data-route>Матрица</a>
-        <a href="./sources" data-route>Источники</a>
-      </nav>
-      <div class="top-actions">
-        <button type="button" data-action="sources" aria-label="Показать источники">S · Источники</button>
-        <button type="button" data-action="fullscreen" aria-label="Полноэкранный режим">F · Экран</button>
-      </div>
-    </header>
-
     <main id="stage" class="stage" tabindex="-1"></main>
 
     <aside id="source-drawer" class="drawer" aria-hidden="true" aria-label="Источники страницы">
@@ -48,13 +29,6 @@
     </aside>
 
     <aside id="presenter-notes" class="presenter-notes" data-auto-hide aria-label="Заметки ведущего" hidden></aside>
-
-    <div class="presenter-bar" data-auto-hide hidden>
-      <button type="button" data-action="top">T · Вверх</button>
-      <button type="button" data-action="sources">S · Источники</button>
-      <button type="button" data-action="fullscreen">F · Экран</button>
-      <button type="button" data-action="capture">C · Controls</button>
-    </div>
 
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
   </div>

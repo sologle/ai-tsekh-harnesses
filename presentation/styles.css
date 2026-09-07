@@ -471,3 +471,102 @@ tr.dim { opacity: 0.45; }
 .visual .ring-core { z-index: auto; width: 180px; height: 180px; min-height: 0; display: flex; align-items: center; justify-content: center; text-align: center; padding: 18px; }
 .visual .ring-items { position: static; inset: auto; display: flex; flex-wrap: wrap; gap: 10px; }
 @media (max-width: 760px) { .visual .ring { display: block; } .visual .ring-core { width: 100%; margin-bottom: 12px; } }
+
+/* ---------- responsive optimization ---------- */
+
+/* hide topbar chrome remnants entirely (nav now in-page) */
+.topbar { display: none !important; }
+
+/* in-page nav */
+.page-nav { display: flex; flex-wrap: wrap; gap: 10px; margin: 14px 0; }
+.page-nav.top { margin: 0 0 18px; }
+.lesson-switch {
+  font: 600 13px/1.2 Arial, sans-serif;
+  color: #b9b9c4;
+  text-decoration: none;
+  border: 1px solid #2c2c33;
+  background: #17171b;
+  border-radius: 10px;
+  padding: 9px 14px;
+  transition: border-color 0.15s, color 0.15s;
+}
+a.lesson-switch:hover { color: #fff; border-color: #4a4a55; }
+.lesson-switch.muted { opacity: 0.35; }
+.grid-footer { padding: 8px 0 24px; border-top: 1px solid #26262c; }
+
+/* ===== mobile (<=760px) ===== */
+@media (max-width: 760px) {
+  html { -webkit-text-size-adjust: 100%; }
+  .long-grid { padding: 56px 14px 32px; gap: 24px; }
+  .lesson-header h1 { font-size: 26px; }
+  .lesson-header .lead { font-size: 14px; }
+  .long-grid .screen-inner { padding: 18px 14px; }
+  .long-grid .screen-head h2 { font-size: 20px; }
+  .long-grid .screen-head .lead { font-size: 13.5px; }
+  .screen-id { display: none; }
+  .block-jump { display: none; }
+  .footer-note { font-size: 11px; }
+
+  /* tables -> compact */
+  .criteria-table th, .criteria-table td { padding: 8px 9px; font-size: 12.5px; }
+  .criteria-table .row-head { min-width: 150px; }
+  .matrix-full .row-head img.product-logo { width: 22px; height: 22px; vertical-align: -5px; }
+  .criteria-table-wrap { margin: 0 -14px; padding: 0 14px; }
+
+  /* grids collapse */
+  .stats { grid-template-columns: 1fr; }
+  .card-grid { grid-template-columns: 1fr; }
+  .ring-items { flex-direction: column; }
+
+  /* typography scale-down */
+  .visual { font-size: 14px; }
+  .visual-caption { font-size: 12px; }
+  .hero h2 { font-size: 22px; }
+  .decision-formula { font-size: 13px; }
+}
+
+/* ===== small mobile (<=420px) ===== */
+@media (max-width: 420px) {
+  .long-grid { padding: 48px 10px 24px; gap: 18px; }
+  .long-grid .screen-inner { padding: 14px 10px; }
+  .criteria-table { font-size: 11.5px; }
+  .criteria-table th, .criteria-table td { padding: 6px 7px; }
+  .layer-row { grid-template-columns: 1fr; gap: 4px; }
+  .decision-row { grid-template-columns: 1fr; }
+  .acceptance-row { grid-template-columns: 1fr; gap: 4px; }
+  .workflow li { grid-template-columns: 28px 1fr; }
+}
+
+/* ===== large screens (>=1600px) ===== */
+@media (min-width: 1600px) {
+  .long-grid { max-width: 1560px; padding: 120px 48px 80px; gap: 56px; }
+  .long-grid .screen-inner { padding: 44px 52px; }
+  .long-grid .screen-head h2 { font-size: 34px; }
+  .lesson-header h1 { font-size: 56px; }
+  .criteria-table th, .criteria-table td { font-size: 15px; padding: 13px 16px; }
+  .info-card { padding: 22px; }
+  .info-card h3 { font-size: 17px; }
+  .info-card p, .workflow span, .checklist li { font-size: 15px; }
+}
+
+/* ===== ultrawide (>=2200px) ===== */
+@media (min-width: 2200px) {
+  .long-grid { max-width: 1880px; gap: 64px; }
+  .lesson-header h1 { font-size: 64px; }
+  .long-grid .screen-head h2 { font-size: 40px; }
+  .long-grid .screen-head .lead { font-size: 18px; }
+  .criteria-table th, .criteria-table td { font-size: 16.5px; padding: 15px 18px; }
+  html { font-size: 17px; }
+}
+
+/* matrix table horizontal scroll affordance on mobile */
+@media (max-width: 760px) {
+  .criteria-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .criteria-table { min-width: 560px; }
+}
+
+/* overflow guards */
+html, body { overflow-x: clip; }
+.app { overflow-x: clip; }
+.drawer { right: 0; transform: translateX(100%); visibility: hidden; }
+.drawer.open { transform: translateX(0); visibility: visible; }
