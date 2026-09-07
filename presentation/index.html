@@ -5,7 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#0F0F12">
   <title>AI-харнессы · презентация модуля</title>
-  <link rel="stylesheet" href="./styles.css">
+  <script>
+    (function () {
+      var seg = location.pathname.replace(/[^/]*$/, "");
+      var idx = seg.indexOf("/presentation/");
+      window.__BASE__ = idx >= 0 ? seg.slice(0, idx + "/presentation/".length) : seg;
+      if (/\/lesson\/$/.test(window.__BASE__)) window.__BASE__ = window.__BASE__.replace(/lesson\/$/, "");
+    })();
+  </script>
+  <script>document.write('<link rel="stylesheet" href="' + window.__BASE__ + 'styles.css">');</script>
 </head>
 <body>
   <a class="skip-link" href="#stage">К содержанию</a>
@@ -20,6 +28,7 @@
         <a href="./lesson/2" data-route>02</a>
         <a href="./lesson/3" data-route>03</a>
         <a href="./lesson/4" data-route>04</a>
+        <a href="./matrix" data-route>Матрица</a>
         <a href="./sources" data-route>Источники</a>
       </nav>
       <div class="top-actions">
@@ -30,41 +39,27 @@
 
     <main id="stage" class="stage" tabindex="-1"></main>
 
-    <aside id="source-drawer" class="drawer" aria-hidden="true" aria-label="Источники экрана">
+    <aside id="source-drawer" class="drawer" aria-hidden="true" aria-label="Источники страницы">
       <div class="drawer-head">
-        <div><span class="micro">Проверка</span><h2>Источники экрана</h2></div>
+        <div><span class="micro">Проверка</span><h2>Источники</h2></div>
         <button type="button" data-action="sources-close" aria-label="Закрыть источники">Закрыть</button>
       </div>
       <div id="source-list"></div>
     </aside>
 
-    <aside id="presenter-notes" class="presenter-notes" data-auto-hide aria-label="Заметки ведущего"></aside>
+    <aside id="presenter-notes" class="presenter-notes" data-auto-hide aria-label="Заметки ведущего" hidden></aside>
 
     <div class="presenter-bar" data-auto-hide hidden>
-      <button type="button" data-action="prev" aria-label="Предыдущий шаг">←</button>
-      <button type="button" data-action="next" aria-label="Следующий шаг">→</button>
-      <button type="button" data-action="reset">R · Reset</button>
-      <button type="button" data-action="map">M · Карта</button>
-      <button type="button" data-action="export-svg">SVG</button>
-      <button type="button" data-action="export-png">PNG</button>
+      <button type="button" data-action="top">T · Вверх</button>
+      <button type="button" data-action="sources">S · Источники</button>
+      <button type="button" data-action="fullscreen">F · Экран</button>
       <button type="button" data-action="capture">C · Controls</button>
     </div>
 
-    <button id="progress" class="progress" type="button" data-action="progress" aria-label="Скрыть прогресс"></button>
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
   </div>
 
-  <dialog id="jump-dialog" class="jump-dialog">
-    <form method="dialog" id="jump-form">
-      <span class="micro">Быстрый переход</span>
-      <h2>Номер экрана</h2>
-      <p>Введи номер в текущем уроке или полный ID, например P3-06.</p>
-      <label><span class="sr-only">Номер или ID экрана</span><input id="jump-input" name="screen" autocomplete="off" placeholder="6 или P3-06"></label>
-      <div class="dialog-actions"><button value="cancel">Отмена</button><button value="default" data-submit>Перейти</button></div>
-    </form>
-  </dialog>
-
-  <noscript>Для навигации и пошаговых состояний презентации нужен JavaScript.</noscript>
-  <script src="./app.js" defer></script>
+  <noscript>Для long grid и матрицы нужен JavaScript.</noscript>
+  <script>document.write('<script src="' + window.__BASE__ + 'app.js" defer><\/script>');</script>
 </body>
 </html>

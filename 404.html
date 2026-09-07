@@ -9,7 +9,7 @@
     if (path.indexOf("/sources") >= 0) params.set("sources", "1");
     location.replace("/presentation/" + (params.toString() ? "?" + params.toString() : "") + location.hash);
   } else {
-    location.replace("/" + (params.toString() ? "?" + params.toString() : "") + location.hash);
+    location.replace("/presentation/" + location.search + location.hash);
   }
 })();
 </script>

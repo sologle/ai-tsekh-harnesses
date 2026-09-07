@@ -291,3 +291,33 @@ h1, h2, h3, p { margin-top: 0; }
   .screen-inner, .presentation-shell .screen-inner { width: 100%; padding: 48px; }
   .presentation-shell .screen-inner::after { display: none; }
 }
+
+/* ---------- long grid ---------- */
+.long-grid { max-width: 1400px; margin: 0 auto; padding: 96px 32px 64px; display: grid; gap: 48px; }
+.lesson-header { padding: 8px 0 0; border-bottom: 1px solid #26262c; padding-bottom: 24px; }
+.lesson-header h1 { font-size: clamp(32px, 4vw, 52px); margin: 8px 0; }
+.block-jump { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.block-jump a { font: 600 12px/1 Arial; color: #9a9aa5; text-decoration: none; border: 1px solid #2c2c33; padding: 7px 10px; border-radius: 8px; }
+.block-jump a:hover { color: #fff; border-color: #4a4a55; }
+.long-grid .block { scroll-margin-top: 88px; }
+.long-grid .screen-inner { min-height: 0; padding: 32px; }
+.long-grid .screen-head h2 { font-size: clamp(22px, 2.4vw, 32px); }
+.inline-notes { margin-top: 20px; border: 1px dashed #3a3a44; background: #17171b; border-radius: 10px; padding: 12px 16px; font-size: 13px; color: #b9b9c4; }
+.inline-notes b { color: #e8e8ee; }
+.matrix-hint { margin: 0 0 14px; color: #b9b9c4; }
+.matrix-full th, .matrix-full td { font-size: 13px; padding: 10px 12px; }
+.matrix-full .row-head small { color: #8f8f9b; }
+.product-logo { border-radius: 6px; background: #222; vertical-align: -6px; margin-right: 6px; }
+tr.dim { opacity: 0.45; }
+.badge.info { background: #1d2a3a; color: #7fb3e8; }
+.matrix-link .lesson-no { font-size: 22px; }
+.matrix-page { padding-bottom: 0 !important; }
+@media (max-width: 900px) {
+  .long-grid { padding: 84px 16px 40px; gap: 28px; }
+  .matrix-full { font-size: 12px; }
+  .matrix-full th, .matrix-full td { padding: 7px 8px; }
+}
+
+.decision-formula { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 14px; font-size: 15px; }
+.decision-formula span { background: #1c1c22; border: 1px solid #33333c; border-radius: 8px; padding: 6px 12px; }
+.decision-formula i { color: #6f6f7c; font-style: normal; }

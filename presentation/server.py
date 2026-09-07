@@ -9,7 +9,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 ROOT = Path(__file__).resolve().parent
-APP_ROUTES = {"/", "/lesson/1", "/lesson/2", "/lesson/3", "/lesson/4", "/sources"}
+APP_ROUTES = {"/", "/lesson/1", "/lesson/2", "/lesson/3", "/lesson/4", "/sources", "/matrix"}
 
 
 class PresentationHandler(SimpleHTTPRequestHandler):
