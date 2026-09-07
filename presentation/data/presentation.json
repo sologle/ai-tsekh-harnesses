@@ -2499,7 +2499,7 @@
    {
     "id": "velsclaude-full",
     "name": "VelsClaude Full",
-    "logo": "data/logos/velsclaude-full.png",
+    "logo": "",
     "lesson": 3,
     "role": "Серверная оболочка над Claude Code",
     "autonomy": "делегированная",

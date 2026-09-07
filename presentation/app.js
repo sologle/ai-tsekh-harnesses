@@ -58,6 +58,7 @@
   }
 
   function setShellMode() {
+    ensureChrome();
     const presenter = isPresenter();
     app.classList.toggle("presentation-shell", presenter);
     if (presenterBar) presenterBar.hidden = !presenter;
@@ -179,7 +180,7 @@
     const maxLesson = state === "L1" ? 1 : state === "L2" ? 2 : state === "L3" ? 3 : 4;
     const rows = m.products.filter((p) => p.lesson <= maxLesson).map((p) => {
       return `<tr>
-        <td class="row-head"><img class="product-logo" src="${escapeHtml((ROOT_BASE + p.logo.replace(/^\.\//, "")))}" alt="" width="28" height="28" loading="lazy"> ${escapeHtml(p.name)}<br><small>${escapeHtml(p.role)}</small></td>
+        <td class="row-head">${p.logo ? `<img class="product-logo" src="${escapeHtml((ROOT_BASE + p.logo.replace(/^\.\//, "")))}" alt="" width="28" height="28" loading="lazy">` : ""}${escapeHtml(p.name)}<br><small>${escapeHtml(p.role)}</small></td>
         <td>${escapeHtml(p.autonomy)}</td>
         <td>${"★".repeat(p.customization)}<span class="sr-only"> ${p.customization} из 6</span></td>
         <td>${escapeHtml(p.sourceStatus)}</td>
@@ -258,6 +259,20 @@
   function renderDrawerSources() {
     const list = drawerSources.map((id) => [id, data.sources[id]]).filter(([, s]) => s);
     sourceList.innerHTML = list.length ? list.map(([id, source]) => `<article class="drawer-source"><h3>${escapeHtml(source.title)}</h3><p>${escapeHtml(source.claim)}</p><a href="${escapeHtml(source.url)}" ${source.url.startsWith("http") ? 'target="_blank" rel="noreferrer"' : ""}>${escapeHtml(id)} · открыть источник</a></article>`).join("") : "<p>На этой странице нет источников.</p>";
+  }
+
+  // DS: progress bar + dot navigation
+  function ensureChrome() {
+    if (!document.querySelector(".progress-bar")) {
+      const bar = document.createElement("div");
+      bar.className = "progress-bar";
+      document.body.appendChild(bar);
+      window.addEventListener("scroll", () => {
+        const h = document.documentElement;
+        const max = h.scrollHeight - h.clientHeight;
+        bar.style.width = (max > 0 ? (h.scrollTop / max) * 100 : 0) + "%";
+      }, { passive: true });
+    }
   }
 
   function renderHome() {
@@ -388,7 +403,7 @@
     }
     renderMatrixPage();
     check(stage.querySelectorAll(".criteria-table.matrix tbody tr").length === 13, "matrix page: 13 product rows");
-    check(stage.querySelectorAll(".matrix .product-logo").length === 13, "matrix page: 13 logos");
+    check(stage.querySelectorAll(".matrix .product-logo").length === 12, "matrix page: 12 logos (VelsClaude runs without an icon per DS)");
     await Promise.all(Array.from(stage.querySelectorAll(".matrix .product-logo")).map((img) => img.complete ? null : new Promise((res) => { img.onload = img.onerror = res; })));
     const logosOk = Array.from(stage.querySelectorAll(".matrix .product-logo")).every((img) => img.complete && img.naturalWidth > 4);
     check(logosOk, "matrix page: all logos load");
