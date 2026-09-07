@@ -333,9 +333,11 @@
     const norm = rawPath.startsWith("/") ? rawPath : "/" + rawPath;
     const path = norm.replace(/\/$/, "") || "/";
     if (path === "/") {
-      const lessonParam = Number(new URLSearchParams(location.search).get("lesson"));
+      const params = new URLSearchParams(location.search);
+      const lessonParam = Number(params.get("lesson"));
       if (lessonParam >= 1 && lessonParam <= 4) { renderLessonGrid(findLesson(lessonParam)); return; }
-      if (new URLSearchParams(location.search).has("sources")) { renderSourcesPage(); return; }
+      if (params.has("matrix")) { renderMatrixPage(); return; }
+      if (params.has("sources")) { renderSourcesPage(); return; }
       renderHome();
     }
     else if (path === "/sources") renderSourcesPage();
