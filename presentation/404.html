@@ -1,16 +1,11 @@
-<!doctype html><meta charset="utf-8"><title>AI.Цех · Харнессы</title>
+<!doctype html><meta charset="utf-8"><title>AI-харнессы · презентация</title>
 <script>
 (function(){
-  var path = location.pathname;
+  var base = location.pathname.indexOf("/presentation/") >= 0 ? "/presentation/" : "/";
   var params = new URLSearchParams(location.search);
-  var idx = path.indexOf("/presentation/");
-  var base = idx >= 0 ? path.slice(0, idx + "/presentation/".length) : path.replace(/[^/]*$/, "");
-  if (idx >= 0) {
-    var lesson = path.match(/\/lesson\/([1-4])/);
-    if (lesson) params.set("lesson", lesson[1]);
-    if (path.indexOf("/sources") >= 0) params.set("sources", "1");
-    if (path.indexOf("/matrix") >= 0) params.set("matrix", "1");
-  }
+  var lesson = location.pathname.match(/\/lesson\/([1-4])/);
+  if (lesson) params.set("lesson", lesson[1]);
+  if (location.pathname.indexOf("/sources") >= 0) params.set("sources", "1");
   location.replace(base + (params.toString() ? "?" + params.toString() : "") + location.hash);
 })();
 </script>

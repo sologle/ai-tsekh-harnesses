@@ -570,3 +570,43 @@ html, body { overflow-x: clip; }
 .app { overflow-x: clip; }
 .drawer { right: 0; transform: translateX(100%); visibility: hidden; }
 .drawer.open { transform: translateX(0); visibility: visible; }
+
+/* ---------- longread restyle: continuous article, not stacked slides ---------- */
+.long-grid { max-width: 880px; padding: 96px 24px 64px; gap: 0; }
+.long-grid .screen.block {
+  background: none; border: none; border-radius: 0;
+  box-shadow: none; margin: 0; padding: 0;
+}
+.long-grid .screen-inner {
+  background: none; border: none; border-radius: 0; box-shadow: none;
+  padding: 40px 0 8px; max-width: 100%;
+}
+.long-grid .screen-head { margin-bottom: 18px; }
+.long-grid .screen-head h2 { font-size: 27px; line-height: 1.25; letter-spacing: -0.01em; }
+.long-grid .screen-head .lead { font-size: 16px; color: #a9a9b6; margin-top: 6px; }
+.long-grid .visual { background: none; border: none; border-radius: 0; padding: 0; }
+.long-grid .block + .block { border-top: 1px solid #202027; }
+.long-grid .lesson-header { border-bottom: none; padding-bottom: 8px; }
+.long-grid .lesson-header h1 { font-size: 44px; line-height: 1.12; }
+
+/* components keep inner cards but sit flush in the flow */
+.longread-cards .layer-row, .longread-cards .workflow li, .longread-cards .checklist li,
+.longread-cards .decision-row, .longread-cards .acceptance-row, .longread-cards .ring-item,
+.longread-cards .stat, .longread-cards .info-card, .longread-cards .route-node { background: #141419; }
+
+@media (max-width: 760px) {
+  .long-grid { padding: 64px 16px 40px; }
+  .long-grid .screen-inner { padding: 28px 0 4px; }
+  .long-grid .screen-head h2 { font-size: 21px; }
+  .long-grid .lesson-header h1 { font-size: 30px; }
+}
+@media (min-width: 1600px) {
+  .long-grid { max-width: 920px; padding: 128px 24px 80px; }
+  .long-grid .screen-head h2 { font-size: 31px; }
+  .long-grid .lesson-header h1 { font-size: 52px; }
+}
+@media (min-width: 2200px) {
+  .long-grid { max-width: 980px; }
+  .long-grid .screen-head h2 { font-size: 34px; }
+  .long-grid .lesson-header h1 { font-size: 58px; }
+}

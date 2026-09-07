@@ -174,7 +174,7 @@
     return `<div class="criteria-table-wrap matrix-full"><table class="criteria-table matrix">
       <thead><tr><th>Продукт</th><th>Автономность</th><th>Кастомизация</th><th>Код</th><th>Модели</th><th>Самоизменение</th><th>Интерфейсы</th></tr></thead>
       <tbody>${rows}</tbody></table></div>
-      <p class="qualitative">${escapeHtml(m.disclaimer)} · проверено ${escapeHtml(m.checkedAt)}</p>`;
+      <p class="qualitative">${escapeHtml(m.disclaimer)}</p>`;
   }
 
   const renderers = {
@@ -201,15 +201,14 @@
   }
 
   // ---------- long grid rendering ----------
-  function blockHtml(screen, index, total) {
+  function blockHtml(screen) {
     const notes = isPresenter() && screen.presenterNotes ? `
       <aside class="inline-notes"><b>Реплика:</b> ${escapeHtml(screen.presenterNotes.cue)} <b>· Дальше:</b> ${escapeHtml(screen.presenterNotes.next)} <b>· Риск:</b> ${escapeHtml(screen.presenterNotes.risk)}</aside>` : "";
     return `<section class="screen block" id="${escapeHtml(screen.id)}" aria-labelledby="t-${escapeHtml(screen.id)}">
       <div class="screen-inner">
-        <div class="screen-head"><div><span class="micro">${escapeHtml(screen.micro)} · блок ${index + 1}/${total}</span><h2 id="t-${escapeHtml(screen.id)}">${escapeHtml(screen.title)}</h2><p class="lead">${escapeHtml(screen.lead)}</p></div><span class="screen-id">${escapeHtml(screen.id)}</span></div>
+        <div class="screen-head"><div><span class="micro">${escapeHtml(screen.micro)}</span><h2 id="t-${escapeHtml(screen.id)}">${escapeHtml(screen.title)}</h2><p class="lead">${escapeHtml(screen.lead)}</p></div></div>
         <div class="visual" data-component="${escapeHtml(screen.component)}">${renderVisual(screen)}</div>
         ${notes}
-        <p class="footer-note">Авторская учебная модель; возможности продуктов зависят от конфигурации. Проверено ${escapeHtml(screen.freshness)}.</p>
       </div>
     </section>`;
   }
@@ -217,8 +216,7 @@
   function renderLessonGrid(lesson) {
     currentLesson = lesson;
     document.title = `Урок ${lesson.number} · ${lesson.title}`;
-    const blocks = lesson.screens.map((screen, i) => blockHtml(screen, i, lesson.screens.length)).join("");
-    const jumpNav = `<nav class="block-jump" aria-label="Блоки урока">${lesson.screens.map((s, i) => `<a href="#${escapeHtml(s.id)}">${String(i + 1).padStart(2, "0")}</a>`).join("")}</nav>`;
+    const blocks = lesson.screens.map((screen) => blockHtml(screen)).join("");
     const prevL = lesson.number > 1 ? `<a class="lesson-switch" href="${withBase("/lesson/" + (lesson.number - 1))}" data-route>← Урок ${lesson.number - 1}</a>` : `<span class="lesson-switch muted">← Урок ${lesson.number - 1}</span>`;
     const nextL = lesson.number < 4 ? `<a class="lesson-switch" href="${withBase("/lesson/" + (lesson.number + 1))}" data-route>Урок ${lesson.number + 1} →</a>` : `<span class="lesson-switch muted">Урок ${lesson.number + 1} →</span>`;
     const lessonNav = `<nav class="page-nav" aria-label="Навигация модуля">
@@ -227,7 +225,7 @@
       <a class="lesson-switch" href="${withBase("/matrix")}" data-route>Матрица</a>
     </nav>`;
     stage.innerHTML = `<section class="long-grid" data-lesson="${lesson.number}">
-      <header class="lesson-header"><nav class="page-nav top" aria-label="Навигация модуля"><a class="lesson-switch" href="${withBase("/")}" data-route>← Все уроки</a><a class="lesson-switch" href="${withBase("/matrix")}" data-route>Матрица</a></nav><span class="micro">Урок ${lesson.number} · ${escapeHtml(lesson.duration || "")}</span><h1>${escapeHtml(lesson.title)}</h1><p class="lead">${escapeHtml(lesson.outcome)}</p>${jumpNav}</header>
+      <header class="lesson-header"><nav class="page-nav top" aria-label="Навигация модуля"><a class="lesson-switch" href="${withBase("/")}" data-route>← Все уроки</a><a class="lesson-switch" href="${withBase("/matrix")}" data-route>Матрица</a></nav><span class="micro">Урок ${lesson.number} · ${escapeHtml(lesson.duration || "")}</span><h1>${escapeHtml(lesson.title)}</h1><p class="lead">${escapeHtml(lesson.outcome)}</p></header>
       ${blocks}
       <footer class="grid-footer">${lessonNav}</footer>
     </section>`;
@@ -243,7 +241,7 @@
 
   function renderDrawerSources() {
     const list = drawerSources.map((id) => [id, data.sources[id]]).filter(([, s]) => s);
-    sourceList.innerHTML = list.length ? list.map(([id, source]) => `<article class="drawer-source">${sourceBadge(source)}<h3>${escapeHtml(source.title)}</h3><p>${escapeHtml(source.claim)}</p><a href="${escapeHtml(source.url)}" ${source.url.startsWith("http") ? 'target="_blank" rel="noreferrer"' : ""}>${escapeHtml(id)} · открыть источник</a><small>Проверено ${escapeHtml(source.checkedAt)} · уверенность: ${escapeHtml(source.confidence)}</small></article>`).join("") : "<p>На этой странице нет источников.</p>";
+    sourceList.innerHTML = list.length ? list.map(([id, source]) => `<article class="drawer-source">${sourceBadge(source)}<h3>${escapeHtml(source.title)}</h3><p>${escapeHtml(source.claim)}</p><a href="${escapeHtml(source.url)}" ${source.url.startsWith("http") ? 'target="_blank" rel="noreferrer"' : ""}>${escapeHtml(id)} · открыть источник</a></article>`).join("") : "<p>На этой странице нет источников.</p>";
   }
 
   function renderHome() {
@@ -280,7 +278,7 @@
   function renderSourcesPage() {
     currentLesson = null;
     document.title = "Источники · AI-харнессы";
-    const rows = Object.entries(data.sources).map(([id, source]) => `<article class="source-row" id="${escapeHtml(id)}"><code>${escapeHtml(id)}</code><div>${sourceBadge(source)}<h3>${escapeHtml(source.title)}</h3><p>${escapeHtml(source.claim)}</p><a href="${escapeHtml(source.url)}" ${source.url.startsWith("http") ? 'target="_blank" rel="noreferrer"' : ""}>Открыть источник</a></div><time datetime="${escapeHtml(source.checkedAt)}">${escapeHtml(source.checkedAt)}</time></article>`).join("");
+    const rows = Object.entries(data.sources).map(([id, source]) => `<article class="source-row" id="${escapeHtml(id)}"><code>${escapeHtml(id)}</code><div>${sourceBadge(source)}<h3>${escapeHtml(source.title)}</h3><p>${escapeHtml(source.claim)}</p><a href="${escapeHtml(source.url)}" ${source.url.startsWith("http") ? 'target="_blank" rel="noreferrer"' : ""}>Открыть источник</a></div></article>`).join("");
     stage.innerHTML = `<section class="sources-page"><span class="micro">Provenance · актуальность</span><h1>Факт, авторская модель и личный опыт разделены</h1><p class="lead">Product claims ведут к первичным источникам. Авторские классификации и локальные demo contracts не маскируются под отраслевой стандарт.</p><div class="source-register">${rows}</div></section>`;
     drawerSources = [];
     renderDrawerSources();
